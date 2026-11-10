@@ -1,0 +1,8 @@
+.project-entry{display:flex;align-items:center;border-bottom:1px solid #e3dccc}
+.project-entry:last-child{border-bottom:0}
+.project-entry .project-row{flex:1;min-width:0;width:auto;border-bottom:0}
+.project-entry .project-row>span:first-of-type{min-width:0;overflow-wrap:anywhere}
+.delete-project{flex-shrink:0;margin-right:24px;background:transparent;border-color:transparent;color:#88523f;font-size:13px}
+.delete-project:hover{color:#8e3025;background:#f2e6dc;border-color:#ddc3b6}
+.delete-project:focus-visible{outline:2px solid #a64e36;outline-offset:3px}
+@media(max-width:700px){.project-entry .project-row{padding:20px 14px;gap:12px}.project-entry .project-row>span:last-child{display:none}.delete-project{margin-right:12px}}

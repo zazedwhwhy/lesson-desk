@@ -1,0 +1,13 @@
+import React,{useEffect,useState} from 'react';
+import {invoke} from './api';
+import {friendlyError} from '../core/errors';
+type Entry={id:string;title:string;instruction:string;system:string;effective:{instruction:string;system:string};custom:boolean;lastRequest?:unknown};
+export function PromptSettings({back}:{back:()=>void}){
+ const [entries,setEntries]=useState<Entry[]>([]),[id,setId]=useState('sentences'),[instruction,setInstruction]=useState(''),[system,setSystem]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[dirty,setDirty]=useState(false);
+ const apply=(rows:Entry[],key=id)=>{setEntries(rows);const e=rows.find(e=>e.id===key);if(e){setInstruction(e.effective.instruction);setSystem(e.effective.system);}setDirty(false);};
+ useEffect(()=>{invoke('prompts').then(rows=>apply(rows,'sentences')).catch(e=>setMessage(friendlyError(e)));},[]);
+ const entry=entries.find(e=>e.id===id);
+ async function save(reset=false){setBusy(true);try{apply(await invoke('save-prompt',id,reset?null:{instruction,system}));setMessage(reset?'已恢复内置提示词':'提示词已保存，下次生成生效');}catch(e){setMessage(friendlyError(e));}finally{setBusy(false);}}
+ const leave=()=>!dirty||confirm('尚有未保存的提示词修改，放弃修改？');
+ return <main className="settings panel prompt-settings" data-screen-label="提示词设置"><h1>提示词</h1><p>默认面向中国大陆浙江省高中英语教学。修改在本机保存，下次请求使用；不会重写已有讲义。</p><p>任务要求和系统提示可修改。原文、题目、修正反馈及输出格式由软件自动附加，引用和保存校验继续执行。</p>{message&&<p role="status">{message}</p>}<label>任务<select aria-label="任务" value={id} disabled={busy} onChange={e=>{if(leave()){setId(e.target.value);apply(entries,e.target.value);setMessage('');}}}>{entries.map(e=><option key={e.id} value={e.id}>{e.title}{e.custom?' · 已自定义':''}</option>)}</select></label><p className="muted">全部任务模板均可直接查看和编辑，无需先调用 API。实际请求预览仅保留本次运行中每项的最近一次，重启后清空，不包含 API Key 或请求头。</p>{entry&&<><label>任务要求<textarea aria-label="任务要求" value={instruction} onChange={e=>{setInstruction(e.target.value);setDirty(true);}} rows={18}/></label><details><summary>系统提示</summary><label>系统提示词<textarea aria-label="系统提示词" value={system} onChange={e=>{setSystem(e.target.value);setDirty(true);}} rows={5}/></label></details><div className="actions"><button className="primary" disabled={busy||!instruction.trim()||!system.trim()} onClick={()=>void save()}>保存提示词</button><button disabled={busy} onClick={()=>{if(confirm('恢复本任务内置提示词？'))void save(true);}}>恢复默认</button><button disabled={busy} onClick={()=>{if(leave())back();}}>返回模型设置</button></div><details><summary>最近一次组装的 API 请求（不代表调用成功）</summary>{entry.lastRequest?<pre className="prompt-preview">{JSON.stringify(entry.lastRequest,null,2)}</pre>:<p>本次运行尚未调用此任务。生成后重新打开页面，可查看完整文本与输出格式；图片内容不在预览中展开。</p>}</details></>}</main>;
+}

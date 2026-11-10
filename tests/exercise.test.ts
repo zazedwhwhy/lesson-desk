@@ -1,0 +1,18 @@
+import {expect,it}from'vitest';import{validateExercise}from'../src/core/exercise';import{demoExercise}from'../src/core/exercise-demo';
+it('接受独立英文材料和同类选择题，不要求沿用原题答案',()=>expect(validateExercise(demoExercise(),'reading').answer).toBe('C'));
+it('拒绝中文转述、依赖原文、缺选项及同题材复述',()=>{const e=demoExercise();expect(()=>validateExercise({...e,stem:'某文介绍安全游泳，问主旨。'},'reading')).toThrow('英文');expect(()=>validateExercise({...e,stem:'What does the above passage mainly discuss?'},'reading')).toThrow('自足');expect(()=>validateExercise({...e,options:[]},'reading')).toThrow('选项');expect(()=>validateExercise({...e,newTopic:e.sourceTopic},'reading')).toThrow('更换');});
+it('拒绝从原卷拷贝一段作为新题和不一致题型',()=>{const e=demoExercise();expect(()=>validateExercise(e,'reading',[e.material])).toThrow('照搬');expect(()=>validateExercise(e,'grammar')).toThrow('题型');});
+it('完形允许单词选项，语法填空必须有独立空位，听力采用三选项',()=>{
+ const base=demoExercise();const cloze={...base,kind:'cloze',material:'Our class wanted to build a small garden beside the library. We did not have enough money to buy new tools, so we asked our neighbours to [1] the old tools they no longer needed. Their support helped us finish the project.',stem:'Choose the best word for the blank.',options:['donate','damage','hide','waste'],answer:'A'};
+ expect(validateExercise(cloze,'cloze')).toBeTruthy();const grammar={...base,kind:'grammar',material:'Our science club has organized [1] exciting exhibition for new students.',stem:'Complete the sentence with an appropriate article.',options:[],answer:'an'};expect(validateExercise(grammar,'grammar')).toBeTruthy();
+ expect(()=>validateExercise({...grammar,material:grammar.material.replace('[1]','an')},'grammar')).toThrow('空位');expect(validateExercise({...base,kind:'listening',options:base.options.slice(0,3)},'listening')).toBeTruthy();
+});
+it('七选五要有五个空、七个选项和五个不同的答案',()=>{
+ const e={...demoExercise(),kind:'seven',skill:'逻辑衔接',material:'Many students think that astronomy requires expensive equipment. [1] Our school club begins with simple observations of the moon and bright stars. [2] Members record the date and what they see each evening. New members sometimes find it hard to identify a star. [3] Before each outdoor meeting, the group leader reads the local forecast. [4] After several months, students compare their records with one another. [5] These discoveries make them eager to continue their observations.',stem:'Choose the best sentence for each gap. There are two extra sentences.',options:['A. You can start with just your eyes.','B. A simple notebook can be useful.','C. Working with a partner makes this easier.','D. Clouds may prevent them from seeing the sky.','E. They can then notice patterns in the changes.','F. Large telescopes are expensive to repair.','G. The old cinema closed last year.'],answer:'1-A;2-B;3-C;4-D;5-E'};
+ expect(validateExercise(e,'seven')).toBeTruthy();expect(()=>validateExercise({...e,answer:'1-A;2-A;3-C;4-D;5-E'},'seven')).toThrow('对应');
+});
+it('拒绝真实返回中把完形空位放到题干末尾、材料却无空位的格式',()=>{
+ const e={...demoExercise(),kind:'cloze',material:'Our school science club planned a rocket launch for Friday. On Thursday night, a heavy storm hit the town. On Friday morning, the club leader checked the field and said the launch would be delayed because the ground was still too wet.',stem:'Choose the best word for the blank. The club leader explained that the ___ was too wet for a safe launch. [1]',options:['ground','rocket','storm','club'],answer:'A'};
+ expect(()=>validateExercise(e,'cloze')).toThrow('空位');
+ expect(()=>validateExercise({...e,material:e.material.replace('ground','[1]'),stem:'Choose the best word for [1].'},'cloze')).toThrow('空位');
+});

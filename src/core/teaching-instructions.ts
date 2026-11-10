@@ -1,0 +1,13 @@
+import {teachingPrompt,type TeachingModule} from './learning';
+export const selectionScope:Record<string,string>={
+sentences:'\n选取范围：中国大陆浙江省普通高中英语应试教学，面向高中生通常水平，不能假定学生已掌握。优先选影响本题理解的复杂句、定语/名词性/状语从句、非谓语、并列层次、指代和逻辑关系，以及能迁移到应用文和读后续写的准确表达。按理解障碍与迁移价值排序，兼顾基础；不以长度或生僻程度排名。不机械套高考押题，不声称属于最新考纲或官方必考。examTip解释本句为何值得学、常见误读及解题/写作用途。只选原文完整句，不足时少选，不拼凑。',
+lexicon:'\n选取范围：中国大陆浙江省普通高中英语应试教学，面向高中生通常词汇基础。优先影响本题理解和选项同义替换的词、常用熟词生义、动词搭配、固定语块、逻辑连接以及可迁移到应用文/读后续写的自然表达。兼顾语篇理解与规范输出；不按生僻程度选词，不凑专有名词、冷僻术语或大量基础功能词。usageNote说明本篇为什么值得学和实际用法，不宣称官方词表收录或频次，不编最新浙江考纲。短文不足3词时如实少选。'
+};
+export function teachingInstructions(module:Exclude<TeachingModule,'transfer'>){
+ const sectionNumber={sentences:'1.',structure:'2.',lexicon:'3.',imitation:'5.'}[module],start=teachingPrompt.indexOf('\n'+sectionNumber),end=teachingPrompt.indexOf('\n'+(Number(sectionNumber[0])+1)+'.',start+1),instruction=teachingPrompt.slice(0,teachingPrompt.indexOf('\n1.'))+teachingPrompt.slice(start,end<0?undefined:end);
+ const directions=module==='sentences'?'为高中课堂选2–4个有教学价值的完整原句，不足时可选1个。citationId从completeSentenceIds中选择，translation准确解释句意，trunk用原词给出主谓宾或主系表，clauses解释真实从句、非谓语或修饰关系，examTip说明本句易错点，不堆砌不相关语法规则。parts至少两项，给role、explanation和对应原词的startToken/endToken。祈使句可在explanation说明省略主语，不能在成分中补出you。短句如实分析，不强称长难句。遇到Let’s表示共同建议时，说明let/us/动词原形关系及其交际作用，不机械套用“省略主语you”；英文片段中的I’m、we’ll等包含主语与缩写动词，不把整个缩写都称为纯谓语。':instruction;
+ const detail=module==='structure'?`\n把本篇做成可用于课堂的阅读路线：genre准确说明文体和交际目的，theme概括具体对象与核心信息，不作原文不支持的价值升华。outline按意义分为少量板块，不能把OCR文本块等同于自然段；paragraph/endParagraph沿用输入编号、顺序递增、覆盖所有非空段。每板块的role写功能，summary写具体内容，relation解释与上一板块的关系（首块说明如何引入），evidenceCitationIds选本板块最能支持判断的1–3个C编号。logic说明组织线索、关键转折或指代与前后关系，而非只列“总分总”。questionLinks对questions中每题恰好一项：questionId复制id，focus说明真实考法，citationIds定位关键句，method具体说明从这些句子怎样推出/排除选项或完成解题；没有问题时返回[]。examFocus以真实题号概括考点，不生成不存在的题号。不要返回evidence、questionNumber，它们由软件绑定。`:module==='lexicon'?`\n选择3–8个真正影响本篇理解/解题或值得迁移的高中词汇与语块；短材料可少选，不为凑数选专名或重复词条。每词包含term（词典形或固定搭配）、sourceForm（sourceCitationId所指原句中实际出现的连续英文形态，如term=observe时可为observed，term=be famous for时可为is famous for）、partOfSpeech（本句词性，短语可写短语类型）、meaning（结合全文确定的本篇义，不堆词典义；尊重原文对义务、数量、否定和可能性的限定，不用通常词义覆盖本篇特殊规则）、usageNote（结合原句说明搭配对象/屈折形式/句法作用）、collocations（2–3个实用搭配及中文义）、contrast（与一个真正易混表达的区别与适用条件，无必要时说明本词用法边界，不硬编近义关系）、memoryExample（含此表达的自然完整英文新句）、exampleTranslation（准确中文译文）。不能选引用句中未出现的表达，不能把原文词形改写后当作sourceForm；词条和例句要对应。不生成memory、quiz、answer，这些由软件处理。`:'';
+ const syntaxDetail=module==='sentences'?'\n句法parts不要返回text或重抄成分：tokenizedSentences的tokens为[序号,原词]，选择startToken/endToken，均为从1开始的闭区间；软件按原文取词。不能把I\'m改成I am、can\'t改成cannot或补出省略词。跨开成分分成两项，不拼接文字。':'';
+ return directions+detail+'\n本次仅生成'+module+'字段，其他模块由独立任务处理，不要输出其他字段。只输出完整JSON对象，不加前后说明或代码围栏，字符串中的引号和换行需正确转义。'+syntaxDetail+(selectionScope[module]??'');
+
+}

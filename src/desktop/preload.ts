@@ -1,0 +1,4 @@
+import { contextBridge, ipcRenderer } from 'electron';
+const allowed = ['ppt-templates','import-ppt-template','review-chinese','generate-chinese','chinese-image','prompts','save-prompt','example','list', 'delete-project', 'load', 'save', 'create', 'files', 'ocr', 'organize', 'proofread', 'auto-correct', 'undo-correction', 'teaching', 'special', 'generate', 'generate-selected', 'resume-generation', 'cancel', 'settings', 'save-settings', 'export-ppt', 'export-bundle', 'import-bundle', 'preview', 'fullscreen'];
+contextBridge.exposeInMainWorld('desk', { invoke: (name: string, ...args: unknown[]) => { if (!allowed.includes(name))
+        return Promise.reject(Error('不允许的操作')); return ipcRenderer.invoke('desk:' + name, ...args); }, onProgress: (fn: (data: any) => void) => { const handler = (_: unknown, x: unknown) => fn(x); ipcRenderer.on('desk:progress', handler); return () => ipcRenderer.removeListener('desk:progress', handler); } });

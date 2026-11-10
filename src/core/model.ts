@@ -1,0 +1,43 @@
+import {chineseSchema} from './chinese';
+import{specialStateSchema}from'./special';
+import { proofreadReportSchema } from './proofread';
+import { z } from 'zod';
+import {learningSchema} from './learning';
+import { exerciseSchema } from './exercise';
+import {exerciseBlueprintSchema}from'./exercise';
+import {taskSchema,taskKinds}from'./generation-model';
+export const types = ['reading', 'seven', 'cloze', 'grammar', 'listening', 'writing', 'continuation'] as const;
+export const labels: Record<string, string> = { reading: '阅读理解', seven: '七选五', cloze: '完形填空', grammar: '语法填空', listening: '听力', writing: '应用文写作', continuation: '读后续写' };
+export const blockSchema = z.object({ id: z.string(), text: z.string(), page: z.number().optional(), x: z.number().optional(), y: z.number().optional() });
+export const passageSchema = z.object({ id: z.string(), title: z.string(), type: z.enum(types), paragraphs: z.array(blockSchema), translation: z.string().default(''),translationSource:z.string().optional(), vocabulary: z.string().default(''), longSentences: z.string().default(''), pool: z.string().default(''),learning:learningSchema.optional(),special:specialStateSchema.optional() });
+export const explanationSchema = z.object({ id: z.string(), createdAt: z.string(), origin: z.enum(['ai', 'teacher', 'example']), answer: z.string(), analysis: z.string(), evidence: z.array(z.object({ blockId: z.string(), quote: z.string() })), practice: z.string(), practiceAnswer: z.string(), exercise:exerciseSchema.optional(),practiceBlueprint:exerciseBlueprintSchema.optional(),sourceText:z.string().optional(),conflict: z.boolean().default(false) });
+export const questionSchema = z.object({ id: z.string(), number: z.string(), passageId: z.string(), type: z.enum(types), stem: z.string(), options: z.array(z.string()), answer: z.string(), confirmed: z.boolean(), excluded: z.boolean(), stale: z.boolean(), versions: z.array(explanationSchema), activeVersion: z.string().optional() });
+export const sourceSchema = z.object({ id: z.string(), name: z.string(), role: z.enum(['paper', 'answer', 'listening']), kind: z.enum(['pdf', 'docx', 'text']), blocks: z.array(blockSchema),ocrPages:z.array(z.number().int().positive()).optional(), asset: z.string().regex(/^sources[/][a-zA-Z0-9_-]+[.](pdf|docx)$/).optional(), previewHtml: z.string().optional(), warnings: z.array(z.string()).optional() });
+export const jobSchema = z.object({ state: z.enum(['idle', 'running', 'partial', 'complete', 'failed', 'cancelled', 'interrupted']), done: z.array(z.string()), errors: z.record(z.string(), z.string()), current: z.string().optional(),mode:z.enum([...taskKinds,'lesson','modules','selected']).optional(),tasks:z.array(taskSchema).optional(),stopReason:z.string().optional() });
+export const correctionRecordSchema=z.object({id:z.string(),createdAt:z.string(),provider:z.string(),model:z.string(),before:z.object({passages:z.array(passageSchema),questions:z.array(questionSchema)}),afterFingerprint:z.string(),changes:z.array(z.object({target:z.string(),before:z.string(),after:z.string(),reason:z.string()})),unresolved:z.array(z.string()),recheck:z.enum(['pending','complete','failed','cancelled','not_required']),recheckError:z.string(),undoneAt:z.string().optional()});
+export const projectSchema = z.object({ schemaVersion: z.literal(1), id: z.string().regex(/^[a-zA-Z0-9_-]+$/), title: z.string().min(1), subject: z.enum(['english','chinese']), chinese: chineseSchema.optional(), updatedAt: z.string(), example: z.boolean(), sources: z.array(sourceSchema), passages: z.array(passageSchema), questions: z.array(questionSchema), job: jobSchema,generationJobs:z.partialRecord(z.enum(taskKinds),jobSchema).optional(), proofread: proofreadReportSchema.optional(),corrections:z.array(correctionRecordSchema).optional() });
+export type Project = z.infer<typeof projectSchema>;
+export type Question = z.infer<typeof questionSchema>;
+export type Passage = z.infer<typeof passageSchema>;
+export type Source = z.infer<typeof sourceSchema>;
+export type Explanation = z.infer<typeof explanationSchema>;
+export type Slide = {
+    id: string;
+    kind: string;
+    title: string;
+    body: string[];
+    questionId?: string;
+};
+export type Settings = {
+    provider: 'openai' | 'deepseek' | 'custom';
+    model: string;
+    baseUrl: string;
+    hasKey?: boolean;
+    key?: string;
+    sentenceCount?: number;
+    lexiconCount?: number;
+};
+export const defaultSettings: Settings = { provider: 'deepseek', model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com' };
+export const uid = () => globalThis.crypto.randomUUID();
+export function emptyProject(title: string, subject: 'english'|'chinese'='english'): Project { return { schemaVersion: 1, id: uid(), title, subject, ...(subject==='chinese'?{chinese:chineseSchema.parse({})}:{}), updatedAt: new Date().toISOString(), example: false, sources: [], passages: [], questions: [], job: { state: 'idle', done: [], errors: {} } }; }
+export const active = (q: Question) => q.versions.find(v => v.id === q.activeVersion);

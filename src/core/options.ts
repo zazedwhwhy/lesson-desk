@@ -1,0 +1,2 @@
+/** A leading indefinite article ("A user...") is not an option label. */
+export function optionEntries(values:string[]){const matched=values.map(v=>v.match(/^\s*([A-G])(?:[.、:：)]\s*|\s+)(.+)$/s));const allLabeled=matched.every((m,i)=>m?.[1]===String.fromCharCode(65+i));return values.map((text,i)=>{const label=String.fromCharCode(65+i);const punct=text.match(/^\s*([A-G])[.、:：)]\s*(.*)$/s);return{label,text:allLabeled?matched[i]![2]:punct?.[1]===label?punct[2]:text};});}
