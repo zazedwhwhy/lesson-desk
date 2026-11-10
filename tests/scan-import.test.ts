@@ -1,3 +1,4 @@
+// Real PDF worker/font startup can exceed 5s on cold Windows CI runners. Keep the timeout scoped to PDF integration tests.
 import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -20,5 +21,5 @@ it('扫描件导入保留材料并标记待识别',async()=>{
   const bytes=Buffer.from(pdf,'latin1'),file=path.join(dir,'synthetic-scan.pdf');await writeFile(file,bytes);
   const r=await readDocument(file,'paper');expect(r.source.blocks).toEqual([]);expect(r.source.ocrPages).toEqual([1]);expect(Buffer.from(r.bytes)).toEqual(bytes);
  }finally{await rm(dir,{recursive:true,force:true});}
-});
+},20000);
 it('界面隐藏Electron远程调用前缀',()=>{expect(friendlyError(new Error("Error invoking remote method 'desk:files': Error: 原材料不足"))).toBe('原材料不足');});

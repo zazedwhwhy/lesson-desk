@@ -40,7 +40,7 @@ export async function readDocument(file: string, role: Source['role']): Promise<
         }
     }
     finally {
-        await doc.destroy();
+        await doc.loadingTask.destroy();
     }
     
 }
