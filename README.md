@@ -2,9 +2,7 @@
 
 面向高中英语与语文教师的 Windows 本地备课工具。导入试卷、核对题目与答案，按需生成讲评和教学材料，再放映或导出可编辑的 PPT。
 
-**当前版本：0.15.1** · Electron / React / TypeScript · [定制非商业许可（含教学例外）](LICENSE)
-
-**使用范围：**允许学习研究、教师备课和正常授课，包括收费课程；禁止售卖软件、收费提供软件服务或集成进商业产品。本项目属于源码公开项目，具体边界与历史版本说明见 [许可与商业使用](docs/许可与商业使用.md)。
+**当前版本：0.15.0** · Electron / React / TypeScript · [MIT License](LICENSE)
 
 ![PPT 模板与授课编排示例](docs/images/ppt-setup.png)
 
@@ -80,8 +78,4 @@ docs/           公开使用文档与开发指南
 
 ## 许可证与致谢
 
-自 `0.15.1` 起，本项目按 [Lesson Desk Noncommercial License 1.0](LICENSE) 提供，保留普通教学使用的明确例外。这是项目定制许可，不是标准的开源许可证。
-
-历史版本 `v0.15.0` 及初始提交仍按 MIT 授权，可以继续按原许可使用、分发及商用；本次修改不追溯限制这些权利。该历史范围的声明保存在 [LICENSES/MIT-v0.15.0.txt](LICENSES/MIT-v0.15.0.txt)，不表示后续新增内容可任选 MIT。此次 `0.15.1` 主要调整许可和说明，不声称已把原 MIT 代码的既有商用权全部收回。
-
-Literata 与霞鹜文楷保留 SIL Open Font License 1.1；第三方组件和用户上传材料保留各自权利。来源及声明见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。
+本项目自行编写的源码采用 [MIT](LICENSE)。随项目分发的 Literata 与霞鹜文楷按 SIL Open Font License 1.1 保留原授权；第三方组件及用户上传材料不因源码开源而改换许可。来源及声明见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。
