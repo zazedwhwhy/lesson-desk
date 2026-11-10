@@ -43,3 +43,5 @@ Thumbs.db
 /scripts/live-*.mjs
 /scripts/packaged-scan-qa.mjs
 /scripts/export-full-retest.mjs
+
+!/docs/错题本-0.16.0.md

@@ -1,3 +1,7 @@
+import {exportNotebook} from './notebook-output';
+import {outputSchema} from '../core/notebook';
+import {notebookSources,notebookExcerptSource} from '../core/notebook-source';
+import {NotebookStore} from './notebook';
 import {TemplateStore} from './ppt-templates';
 import {organizeChinese,generateChinese,reviewChinese} from './chinese';
 import {chineseModules,type ChineseModule,chineseSlides} from '../core/chinese';
@@ -66,6 +70,13 @@ app.whenReady().then(async () => {
     if (!(await store.list()).length&&firstLaunch)
         await store.save(demoProject());
     handle('example',()=>store.save(demoProject()));
+    const notebook=new NotebookStore(path.join(app.getPath('userData'),'notebook.json'));
+    handle('notebook-list',(all=false)=>notebook.list(all));
+    handle('notebook-update',(entry:unknown)=>notebook.update(entry));
+    handle('notebook-source',async(id:string)=>{const entry=(await notebook.list(true)).find(e=>e.id===id);if(!entry)throw Error('条目已不存在');if(!entry.sourceId&&!entry.sourceRef)throw Error('旧片段没有来源定位，请从原课件重新收录');const p=await store.load(entry.projectId,false);if(entry.kind==='excerpt')return notebookExcerptSource(p,entry);const source=notebookSources(p).find(q=>q.id===entry.sourceId);if(!source)throw Error('原题已不存在；保留当前快照');return source;});
+    handle('notebook-output',async(raw:unknown)=>{const o=outputSchema.parse(raw);const entries=await notebook.list();const {notebookDeck}=await import('../core/notebook');notebookDeck(entries,o);const target=await dialog.showSaveDialog(win,{defaultPath:'错题专题复习.'+o.format,filters:[{name:o.format.toUpperCase(),extensions:[o.format]}]});if(target.canceled||!target.filePath)return null;return exportNotebook(entries,o,target.filePath);});
+    handle('notebook-add',(entry:unknown)=>notebook.add(entry));
+    handle('notebook-remove',(id:string)=>notebook.remove(id));
     handle('list', () => store.list());
     handle('delete-project',async(id:string)=>{
         if(running.has(id))throw Error('这份课件正在处理，请等待任务结束或取消后再删除');
