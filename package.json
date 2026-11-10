@@ -1,6 +1,6 @@
 {
   "name": "lesson-desk",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "private": true,
   "description": "英语与语文试卷讲解工作台",
   "main": "dist-desktop/main.cjs",
@@ -51,7 +51,8 @@
       "package.json",
       "!assets/fonts/*.ttf",
       "LICENSE",
-      "THIRD_PARTY_NOTICES.md"
+      "THIRD_PARTY_NOTICES.md",
+      "LICENSES/**"
     ],
     "asarUnpack": [
       "node_modules/pdfjs-dist/**"
@@ -66,7 +67,7 @@
       "createDesktopShortcut": true
     }
   },
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=22.12.0"
   },
