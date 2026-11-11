@@ -1,6 +1,6 @@
 {
   "name": "lesson-desk",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "private": true,
   "description": "英语与语文试卷讲解工作台",
   "main": "dist-desktop/main.cjs",
