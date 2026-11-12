@@ -1,3 +1,4 @@
+import {chemistrySchema} from './chemistry';
 import {chineseSchema} from './chinese';
 import{specialStateSchema}from'./special';
 import { proofreadReportSchema } from './proofread';
@@ -15,7 +16,7 @@ export const questionSchema = z.object({ id: z.string(), number: z.string(), pas
 export const sourceSchema = z.object({ id: z.string(), name: z.string(), role: z.enum(['paper', 'answer', 'listening']), kind: z.enum(['pdf', 'docx', 'text']), blocks: z.array(blockSchema),ocrPages:z.array(z.number().int().positive()).optional(), asset: z.string().regex(/^sources[/][a-zA-Z0-9_-]+[.](pdf|docx)$/).optional(), previewHtml: z.string().optional(), warnings: z.array(z.string()).optional() });
 export const jobSchema = z.object({ state: z.enum(['idle', 'running', 'partial', 'complete', 'failed', 'cancelled', 'interrupted']), done: z.array(z.string()), errors: z.record(z.string(), z.string()), current: z.string().optional(),mode:z.enum([...taskKinds,'lesson','modules','selected']).optional(),tasks:z.array(taskSchema).optional(),stopReason:z.string().optional() });
 export const correctionRecordSchema=z.object({id:z.string(),createdAt:z.string(),provider:z.string(),model:z.string(),before:z.object({passages:z.array(passageSchema),questions:z.array(questionSchema)}),afterFingerprint:z.string(),changes:z.array(z.object({target:z.string(),before:z.string(),after:z.string(),reason:z.string()})),unresolved:z.array(z.string()),recheck:z.enum(['pending','complete','failed','cancelled','not_required']),recheckError:z.string(),undoneAt:z.string().optional()});
-export const projectSchema = z.object({ schemaVersion: z.literal(1), id: z.string().regex(/^[a-zA-Z0-9_-]+$/), title: z.string().min(1), subject: z.enum(['english','chinese']), chinese: chineseSchema.optional(), updatedAt: z.string(), example: z.boolean(), sources: z.array(sourceSchema), passages: z.array(passageSchema), questions: z.array(questionSchema), job: jobSchema,generationJobs:z.partialRecord(z.enum(taskKinds),jobSchema).optional(), proofread: proofreadReportSchema.optional(),corrections:z.array(correctionRecordSchema).optional() });
+export const projectSchema = z.object({ schemaVersion: z.literal(1), id: z.string().regex(/^[a-zA-Z0-9_-]+$/), title: z.string().min(1), subject: z.enum(['english','chinese','chemistry']), chinese: chineseSchema.optional(), chemistry: chemistrySchema.optional(), updatedAt: z.string(), example: z.boolean(), sources: z.array(sourceSchema), passages: z.array(passageSchema), questions: z.array(questionSchema), job: jobSchema,generationJobs:z.partialRecord(z.enum(taskKinds),jobSchema).optional(), proofread: proofreadReportSchema.optional(),corrections:z.array(correctionRecordSchema).optional() }).superRefine((p,ctx)=>{if(p.subject==='chemistry'&&!p.chemistry)ctx.addIssue({code:'custom',message:'化学课件缺少化学数据'});});
 export type Project = z.infer<typeof projectSchema>;
 export type Question = z.infer<typeof questionSchema>;
 export type Passage = z.infer<typeof passageSchema>;
@@ -39,5 +40,5 @@ export type Settings = {
 };
 export const defaultSettings: Settings = { provider: 'deepseek', model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com' };
 export const uid = () => globalThis.crypto.randomUUID();
-export function emptyProject(title: string, subject: 'english'|'chinese'='english'): Project { return { schemaVersion: 1, id: uid(), title, subject, ...(subject==='chinese'?{chinese:chineseSchema.parse({})}:{}), updatedAt: new Date().toISOString(), example: false, sources: [], passages: [], questions: [], job: { state: 'idle', done: [], errors: {} } }; }
+export function emptyProject(title: string, subject: 'english'|'chinese'|'chemistry'='english'): Project { return { schemaVersion: 1, id: uid(), title, subject, ...(subject==='chemistry'?{chemistry:chemistrySchema.parse({})}:{}), ...(subject==='chinese'?{chinese:chineseSchema.parse({})}:{}), updatedAt: new Date().toISOString(), example: false, sources: [], passages: [], questions: [], job: { state: 'idle', done: [], errors: {} } }; }
 export const active = (q: Question) => q.versions.find(v => v.id === q.activeVersion);

@@ -4,8 +4,8 @@ import {promptCatalog} from '../src/core/prompt-catalog';
 import {PromptBook,promptBook} from '../src/desktop/prompt-store';
 import {callAI} from '../src/desktop/ai';
 afterEach(()=>{vi.unstubAllGlobals();promptBook.overrides={};});
-it('首次打开即包含全部27种任务，无需任何请求',()=>{
- const entries=new PromptBook().snapshot();expect(entries).toHaveLength(27);
+it('首次打开即包含全部33种任务，无需任何请求',()=>{
+ const entries=new PromptBook().snapshot();expect(entries).toHaveLength(33);
  for(const id of ['sentences','lexicon','structure','imitation','organize','analysis','translation','blueprint','practice','proofread','correction','ocr','special-option_evidence','special-cohesion','special-cloze_chain','special-writing_task','special-continuation','review-structure','review-lexicon','review-practice'])expect(entries.find(e=>e.id===id)?.instruction.trim().length).toBeGreaterThan(20);
 });
 it.each(promptCatalog().map(e=>[e.id,e] as const))('%s编辑会实际用于API，动态材料与格式保留',async(id,entry)=>{

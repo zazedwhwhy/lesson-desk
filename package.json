@@ -1,8 +1,8 @@
 {
   "name": "lesson-desk",
-  "version": "0.16.1",
+  "version": "0.17.0-beta.1",
   "private": true,
-  "description": "英语与语文试卷讲解工作台",
+  "description": "英语、语文与化学试卷讲解工作台",
   "main": "dist-desktop/main.cjs",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -39,10 +39,10 @@
     "vitest": "4.1.12"
   },
   "build": {
-    "appId": "top.rainhollow.lessondesk",
-    "productName": "讲题工作台",
+    "appId": "top.rainhollow.lessondesk.beta",
+    "productName": "讲题工作台测试版",
     "directories": {
-      "output": "release"
+      "output": "release/0.17.0-beta.1"
     },
     "files": [
       "dist/**",

@@ -1,3 +1,4 @@
+import {reviseChemistry} from './chemistry';
 import { active, type Project, type Question, type Slide, type Passage } from './model';
 import{exerciseText,exerciseAnswerText}from'./exercise';
 export function questionExercise(p:Project,q:Question){const a=p.passages.find(a=>a.id===q.passageId),v=a?.learning?.versions.find(v=>v.id===a.learning?.activeVersion);if(!a?.learning?.stale&&v?.sourceText===teachingSource(p,q.passageId)){const exercise=v.data.transfer.find(t=>t.questionId===q.id)?.exercise;if(exercise)return exercise;}return !q.stale?active(q)?.exercise:undefined;}
@@ -10,7 +11,7 @@ export function issues(p: Project, q: Question): string[] { if (q.excluded)
     out.push('缺少听力原文'); if (active(q)?.conflict)
     out.push('AI答案与参考答案冲突'); return out; }
 const source=(a:Passage|undefined)=>a?[a.type,a.paragraphs,a.pool]:null;
-export function reviseProject(old: Project, next: Project): Project { for (const q of next.questions) {
+export function reviseProject(old: Project, next: Project): Project { if(next.chemistry)reviseChemistry(old.chemistry,next.chemistry); for (const q of next.questions) {
     const prev = old.questions.find(x => x.id === q.id);
     if (!prev)
         continue;

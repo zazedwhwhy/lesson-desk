@@ -49,9 +49,10 @@ else if (ext === '.docx') {
     unzipSync(bytes, { filter: f => { expanded += f.originalSize; if (++count > 2000 || expanded > 120 * 1024 * 1024)
             throw Error('Word文档解压内容超限'); return false; } });
     const r = await mammoth.convertToHtml({ buffer: Buffer.from(bytes) }, { externalFileAccess: false });
-    const safe = sanitize(r.value, { allowedTags: ['p', 'br', 'table', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'li', 'img'], allowedAttributes: { img: ['src'] }, allowedSchemes: ['data'] });
+    const safe = sanitize(r.value, { allowedTags: ['p', 'br', 'table', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'li', 'img', 'sub', 'sup'], allowedAttributes: { img: ['src'] }, allowedSchemes: ['data'] });
     source.previewHtml = safe;
-    const text = safe.replace(/<img[^>]*>/g, '\n[原文含图片，请对照原文件补充必要文字]\n').replace(/<\/(p|tr|h[1-3]|li)>/g, '\n').replace(/<\/(td|th)>/g, ' | ').replace(/<br\s*\/?\s*>/g, '\n').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    const scriptChars=(value:string,kind:string)=>[...value].map(c=>{const from='0123456789+-=()',to=kind==='sub'?'₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎':'⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾';const i=from.indexOf(c);return i>=0?to[i]:c;}).join('');
+    const text = safe.replace(/<(sub|sup)>(.*?)<\/\1>/g,(_,kind,value)=>scriptChars(value,kind)).replace(/<img[^>]*>/g, '\n[原文含图片，请对照原文件补充必要文字]\n').replace(/<\/(p|tr|h[1-3]|li)>/g, '\n').replace(/<\/(td|th)>/g, ' | ').replace(/<br\s*\/?\s*>/g, '\n').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
     source.blocks = text.split('\n').filter(x => x.trim()).map(text => ({ id: uid(), text }));
     if (!source.blocks.length)
         throw Error('Word文档没有可提取内容');

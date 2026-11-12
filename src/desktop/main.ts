@@ -1,3 +1,5 @@
+import {organizeChemistry,generateChemistry,chemistryCaller} from './chemistry';
+import {chemSlides,chemModules,type ChemModule} from '../core/chemistry';
 import {exportNotebook} from './notebook-output';
 import {outputSchema} from '../core/notebook';
 import {notebookSources,notebookExcerptSource} from '../core/notebook-source';
@@ -31,6 +33,8 @@ import { emptyProject, projectSchema, defaultSettings, type Settings, type Proje
 import { reviseProject, issues, validateBundlePath } from '../core/logic';
 import { demoProject } from '../core/demo';
 let win: BrowserWindow, store: Store;
+const beta=app.getVersion().includes('-');
+if(beta&&!app.commandLine.hasSwitch('user-data-dir'))app.setPath('userData',path.join(app.getPath('appData'),'lesson-desk-beta'));
 const running = new Map<string, AbortController>();
 const notifications=new Set<Notification>();
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -64,7 +68,7 @@ function notifyGeneration(p:Project){
 }
 app.whenReady().then(async () => {
     await initializePrompts(app.getPath('userData'));
-    app.setAppUserModelId('top.rainhollow.lessondesk');
+    app.setAppUserModelId(beta?'top.rainhollow.lessondesk.beta':'top.rainhollow.lessondesk');
     store = new Store(path.join(app.getPath('userData'), 'projects'));
     const firstLaunch=await fs.access(store.root).then(()=>false,(error:NodeJS.ErrnoException)=>{if(error.code==='ENOENT')return true;throw error;});
     if (!(await store.list()).length&&firstLaunch)
@@ -92,7 +96,7 @@ app.whenReady().then(async () => {
     });
     handle('load', (id: string) => { if (running.has(id))
         throw Error('任务处理中，请等待或取消'); return store.load(id); });
-    handle('create', (title: string,subject:'english'|'chinese'='english') => {if(!['english','chinese'].includes(subject))throw Error('学科无效');return store.save(emptyProject(title.trim() || '未命名课件',subject));});
+    handle('create', (title: string,subject:'english'|'chinese'|'chemistry'='english') => {if(!['english','chinese','chemistry'].includes(subject))throw Error('学科无效');return store.save(emptyProject(title.trim() || '未命名课件',subject));});
     handle('save', async (raw: unknown) => { const p = projectSchema.parse(raw); if (running.has(p.id))
         throw Error('生成中不可修改，请先取消'); return store.save(reviseProject(await store.load(p.id), p)); });
     handle('files', async (id: string, role: 'paper' | 'answer' | 'listening') => { if (running.has(id))
@@ -108,7 +112,7 @@ app.whenReady().then(async () => {
     handle('organize', async (id: string) => { if (running.has(id))
         throw Error('任务已在运行'); const p = await store.load(id); if (!p.sources.length)
         throw Error('请先上传试卷和答案，再点击整理试卷'); if(p.sources.some(s=>s.ocrPages?.length))throw Error('扫描页尚未识别，请先点击识别扫描页'); const { s, key } = await credentials(); const controller = new AbortController(); running.set(id, controller); try {
-        const result = await (p.subject==='chinese'?organizeChinese:organize)(p, s, key, controller.signal);
+        const result = await (p.subject==='chemistry'?organizeChemistry:p.subject==='chinese'?organizeChinese:organize)(p, s, key, controller.signal);
         if (controller.signal.aborted)
             throw Error('已取消');
         return await store.save(result);
@@ -180,9 +184,43 @@ app.whenReady().then(async () => {
         try{const result=await generateChinese(p,groups,modules,s,key,c.signal,async(next,message)=>{next.updatedAt=new Date().toISOString();await store.save(next);progress(next,message);},resume,questions);if(Notification.isSupported()){const n=new Notification({title:'语文讲义生成结束',body:`${result.chinese!.tasks.filter(t=>t.state==='complete').length} 项已保存，请核实后编排课件。`});notifications.add(n);n.on('close',()=>notifications.delete(n));n.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();});n.show();}return result;}finally{running.delete(id);}
     });
     handle('chinese-image',async(id:string,sid:string,pageNumber:number)=>{
-        if(running.has(id))throw Error('任务处理中');const p=await store.load(id),src=p.sources.find(s=>s.id===sid);if(p.subject!=='chinese'||!src?.asset||src.kind!=='pdf'||!Number.isInteger(pageNumber)||pageNumber<1)throw Error('请选择PDF及有效页码');
+        if(running.has(id))throw Error('任务处理中');const p=await store.load(id),src=p.sources.find(s=>s.id===sid);if(!['chinese','chemistry'].includes(p.subject)||!src?.asset||src.kind!=='pdf'||!Number.isInteger(pageNumber)||pageNumber<1)throw Error('请选择PDF及有效页码');
         const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs'),{createCanvas}=await import('@napi-rs/canvas');const doc=await getDocument({data:new Uint8Array(await fs.readFile(path.join(store.dir(id),src.asset))),useSystemFonts:true}).promise;
         try{if(pageNumber>doc.numPages)throw Error('页码超出原文件');const page=await doc.getPage(pageNumber),vp=page.getViewport({scale:1.3}),canvas=createCanvas(Math.ceil(vp.width),Math.ceil(vp.height));await page.render({canvas:canvas as any,canvasContext:canvas.getContext('2d') as any,viewport:vp}).promise;return canvas.toDataURL('image/jpeg',80);}finally{await doc.loadingTask.destroy();}
+    });
+    handle('generate-chemistry',async(id:string,ids:string[],modules:ChemModule[],resume=false)=>{
+        if(running.has(id))throw Error('任务处理中');
+        if(!Array.isArray(ids)||!Array.isArray(modules)||modules.some(m=>!chemModules.includes(m))||typeof resume!=='boolean')throw Error('生成范围无效');
+        const p=await store.load(id),{s,key}=await credentials(),c=new AbortController();running.set(id,c);
+        try{
+            const result=await generateChemistry(p,ids,modules,c.signal,async(next,message)=>{next.updatedAt=new Date().toISOString();await store.save(next);progress(next,message);},chemistryCaller(s,key),resume);
+            progress(result,'化学生成已结束，请查看各项状态并核对讲义。');
+            if(!win.isFocused())win.flashFrame(true);
+            try{
+                if(Notification.isSupported()){
+                    const tasks=result.chemistry!.tasks,complete=tasks.filter(t=>t.state==='complete').length;
+                    const n=new Notification({title:'化学生成结束',body:`已生成 ${complete} 项，未完成 ${tasks.length-complete} 项；请核对后编排课件。`});
+                    notifications.add(n);n.on('close',()=>notifications.delete(n));n.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();});
+                    n.on('failed',()=>progress(result,'结果已保存；系统通知发送失败，请在应用中查看。'));n.show();
+                }
+            }catch{progress(result,'结果已保存；系统通知不可用，请在应用中查看。');}
+            return result;
+        }finally{running.delete(id);}
+    });
+    handle('chemistry-image',async(id:string)=>{
+        if(running.has(id))throw Error('任务处理中');
+        const p=await store.load(id);if(p.subject!=='chemistry')throw Error('请选择化学课件');
+        const chosen=await dialog.showOpenDialog(win,{properties:['openFile','multiSelections'],filters:[{name:'题目图片',extensions:['png','jpg','jpeg']}]});
+        if(chosen.canceled)return null;
+        if(chosen.filePaths.length>12)throw Error('每次最多选择12张图片');
+        const images=[];
+        for(const file of chosen.filePaths){
+            if((await fs.stat(file)).size>10*1024*1024)throw Error('单张图片不能超过10 MB');
+            const bytes=await fs.readFile(file),png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),jpeg=bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+            if(!png&&!jpeg)throw Error('不是有效的 PNG 或 JPEG 图片');
+            images.push({id:crypto.randomUUID(),name:path.basename(file),data:'data:image/'+(png?'png':'jpeg')+';base64,'+bytes.toString('base64'),description:'',confirmed:false});
+        }
+        return images;
     });
     handle('cancel', (id: string) => running.get(id)?.abort());
     handle('prompts',()=>promptBook.snapshot());
@@ -207,10 +245,10 @@ app.whenReady().then(async () => {
         if(running.has(id))throw Error('请先等待生成完成');
         const p=await store.load(id),loaded=await templateStore.load(typeof options==='boolean'?'paper':options.templateId);
         const selection=Array.isArray(requested)?legacyLessonSelection(p,requested,typeof options==='boolean'&&options):requested;
-        if(p.subject==='chinese')chineseSlides(p.chinese!,requested as string[],loaded.template.layout);else buildLessonDeck(p,selection,loaded.template.layout);
+        if(p.subject==='chemistry')chemSlides(p.chemistry!,requested as string[],loaded.template.layout);else if(p.subject==='chinese')chineseSlides(p.chinese!,requested as string[],loaded.template.layout);else buildLessonDeck(p,selection,loaded.template.layout);
         const d=await dialog.showSaveDialog(win,{defaultPath:p.title+'.pptx',filters:[{name:'PowerPoint',extensions:['pptx']}]});
         if(d.canceled)return null;
-        return exportPpt(p,d.filePath!,p.subject==='chinese'?requested as string[]:selection,loaded);
+        return exportPpt(p,d.filePath!,p.subject!=='english'?requested as string[]:selection,loaded);
     });
     handle('export-bundle', async (id: string) => { if (running.has(id))
         throw Error('请先等待生成完成'); const d = await dialog.showSaveDialog(win, { defaultPath: '课件.lesson.zip', filters: [{ name: '课件包', extensions: ['zip'] }] }); if (!d.canceled)

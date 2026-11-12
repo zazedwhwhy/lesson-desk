@@ -1,3 +1,5 @@
+import {chemistrySystem,chemistryOrganizeInstruction,chemInstructions} from './chemistry-prompts';
+import {chemNames,type ChemModule} from './chemistry';
 import {chineseSystem,chineseOrganizeInstruction,chineseInstructions} from './chinese-prompts';
 import {chineseModuleNames,type ChineseModule} from './chinese';
 import {teachingInstructions} from './teaching-instructions';
@@ -6,6 +8,8 @@ import {specialKinds,specialNames,specialPrompts,specialSystem} from './special'
 import {apiSystem,analysisInstruction,organizeInstruction,translationInstruction,blueprintInstruction,practiceInstruction,practiceSystem,proofreadInstruction,proofreadSystem,correctionInstruction,correctionSystem,ocrInstruction,ocrSystem,reviewInstruction,reviewSystem} from './request-instructions';
 export type PromptTemplate={id:string;title:string;instruction:string;system:string};
 export function promptCatalog():PromptTemplate[]{return [
+ {id:'chemistry-organize',title:'化学 · 整理试卷',instruction:chemistryOrganizeInstruction,system:chemistrySystem},
+ ...Object.entries(chemInstructions).map(([id,instruction])=>({id:'chemistry-'+id,title:'化学 · '+chemNames[id as ChemModule],instruction,system:chemistrySystem})),
  {id:'chinese-organize',title:'语文 · 整理试卷',instruction:chineseOrganizeInstruction,system:chineseSystem},
  ...Object.entries(chineseInstructions).map(([id,instruction])=>({id:'chinese-'+id,title:'语文 · '+chineseModuleNames[id as ChineseModule],instruction,system:chineseSystem})),
  ...(['sentences','structure','lexicon','imitation'] as const).map((id,i)=>({id,title:['句法拆解','篇章脉络','词汇手账','表达迁移'][i],instruction:teachingInstructions(id),system:teachingSystem})),

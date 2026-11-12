@@ -35,9 +35,9 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
             continue;
         }
         if([400,413,422].includes(r.status)){
-            let detail:any;try{detail=await r.json();}catch{detail=null;}
+            let detail:any;try{detail=await r.json();}catch(error){throw new ServiceStopError(`API请求失败（${r.status}），且错误响应无法解析；后续任务已暂停，请检查服务接口。`);}
             const code=String(detail?.error?.code||detail?.error?.type||'');
-            if(!/model_not_found|invalid_model|invalid_api_key|authentication|insufficient_balance|insufficient_quota/i.test(code)&&detail?.error?.param!=='model')throw new GenerationContentError(`本项材料请求被接口拒绝（${r.status}），请检查材料长度或输出要求；其他任务继续。`);
+            if(/^(context_length_exceeded|max_tokens_exceeded|too_many_tokens|request_too_large)$/.test(code)&&detail?.error?.param!=='model')throw new GenerationContentError(`本项材料请求被接口拒绝（${r.status}），请检查材料长度或输出要求；其他任务继续。`);
         }
         throw new ServiceStopError(`API请求失败（${r.status}）。请检查凭据、余额、模型与服务地址；未执行项可稍后继续。`);
     }

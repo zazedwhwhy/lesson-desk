@@ -1,0 +1,14 @@
+.chem-workspace{--chem-accent:#176b68;padding-bottom:80px;color:#253438}
+.chem-header{display:flex;align-items:center;gap:18px;padding:20px 28px;background:white;border-bottom:1px solid #dce5e4}
+.chem-header>div{flex:1}.chem-header h1{font-size:22px;margin:0 0 5px}.chem-header span{color:var(--chem-accent);font-size:14px}
+.chem-tabs{display:flex;gap:10px;padding:16px 28px}.chem-tabs [aria-current=page]{background:var(--chem-accent);color:white}
+.chem-materials{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(400px,1.1fr);gap:22px;padding:0 28px}
+.chem-generation{display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:0 28px}
+.chem-workspace .panel{min-width:0}.chem-workspace fieldset{border:0;margin:0;padding:0}.chem-workspace label:not(.chem-check){display:block;margin:12px 0}.chem-workspace textarea{display:block;width:100%;min-height:90px;line-height:1.7;margin-top:6px}.chem-workspace select{max-width:100%}
+.chem-check{display:flex;gap:9px;align-items:center;margin:12px 0}.chem-check input{width:auto;flex:none}.chem-fields{display:flex;gap:12px;flex-wrap:wrap}.chem-fields>label{flex:1;min-width:100px}
+.chem-image-button{display:block;background:#fff;width:100%;padding:8px;border:1px solid #d6e1df;text-align:center}.chem-image-button img{width:100%;max-height:480px;object-fit:contain}.chem-image-button span{display:block;padding:6px;font-size:13px}
+.chem-source iframe{width:100%;height:420px;border:1px solid #dce5e4;margin:14px 0}.chem-source pre{white-space:pre-wrap;max-height:360px;overflow:auto}.chem-word-images{display:flex;flex-wrap:wrap;gap:8px}.chem-word-images img{display:block;max-width:120px;max-height:120px}
+.chem-figure{border-top:1px solid #dce5e4;margin:16px 0;padding-top:16px}.chem-module{border-top:1px solid #dce5e4;padding:16px 0}.chem-module h3{color:var(--chem-accent)}.chem-module details{padding:12px 0}.chem-text{white-space:pre-wrap;line-height:1.9;overflow-wrap:anywhere}.chem-thumbnail img{max-height:140px;max-width:180px;object-fit:contain}
+.chem-error{display:block;color:#9b341e;overflow-wrap:anywhere}.chem-running{padding:10px 28px;background:#edf5f3}.chem-preview{min-width:0}.chem-preview .ppt-slide-view{max-width:100%;margin:0 auto}
+.chem-zoom{position:fixed;inset:0;z-index:1000;background:rgba(22,34,38,.96);padding:22px;display:flex;flex-direction:column;gap:14px}.chem-zoom>button{align-self:flex-end}.chem-zoom>div{overflow:auto;flex:1;text-align:center}.chem-zoom img{max-width:none;min-width:min(900px,100%);height:auto;background:white}
+@media(max-width:1100px){.chem-materials{grid-template-columns:1fr}.chem-generation{grid-template-columns:260px minmax(0,1fr)}.chem-header{flex-wrap:wrap}}
