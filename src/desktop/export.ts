@@ -1,3 +1,5 @@
+import {withFormulaPreviews} from './ppt-formula-preview';
+import {hasMath,mathLines} from '../core/math-text';
 import {chemSlides} from '../core/chemistry';
 import fs from 'node:fs/promises';
 import pptxgen from 'pptxgenjs';
@@ -30,7 +32,18 @@ export async function exportLessonSlides(deck:{title:string;section:string;kind:
   for(const b of layoutBlocks(s.blocks,layout,s.kind)){
    if(b.y+b.h>body.y+body.h+.001)throw Error(`第 ${i+1} 页内容超过模板正文区域，已停止导出`);
    if(b.label)slide.addText(b.label,{x:b.x,y:b.y,w:b.w,h:.22,fontFace:fonts.body,fontSize:11,color:colors.accent,bold:b.emphasis,margin:0,fit:'shrink'});
+   if(hasMath(b.text)){
+    const size=bodyFontSize(s.kind),color=b.emphasis?colors.accent:colors.text;let y=b.textY;
+    for(const row of mathLines(b.text,b.w,size)){
+     for(const run of row.runs){const box={x:b.x+run.x,y:y+(row.h-run.h)/2,w:run.w,h:run.h};
+      if(run.formula){const svg=run.formula.svg.replace(/currentColor/g,'#'+color).replace(/width="[^"]+"/,`width="${run.w*144}px"`).replace(/height="[^"]+"/,`height="${run.h*144}px"`);slide.addImage({data:'image/svg+xml;base64,'+Buffer.from(svg).toString('base64'),...box,altText:run.raw});}
+      else if(run.text.trim())slide.addText(run.text,{...box,fontFace:fonts.body,fontSize:size,color,margin:0,valign:'middle',breakLine:false});
+     }
+     y+=row.h;
+    }
+   }else{
    slide.addText(b.text,{x:b.x,y:b.textY,w:b.w,h:b.textH,fontFace:subject!=='english'?fonts.body:['source','question','practice'].includes(s.kind)?fonts.source:fonts.body,fontSize:bodyFontSize(s.kind),color:b.emphasis?colors.accent:colors.text,margin:0,valign:'top',breakLine:false,lineSpacingMultiple:1.08});
+   }
   }
   if(layout.height-(body.y+body.h)>=.34){
    const y=layout.height-.32;
@@ -39,7 +52,7 @@ export async function exportLessonSlides(deck:{title:string;section:string;kind:
    slide.addText(`${i+1} / ${deck.length}`,{x:body.x+body.w-1.1,y,w:1.1,h:.2,align:'right',fontFace:fonts.body,fontSize:9,color:colors.muted,margin:0});
   }
  });
- const bytes=new Uint8Array(await ppt.write({outputType:'arraybuffer'}) as ArrayBuffer);
+ const bytes=await withFormulaPreviews(new Uint8Array(await ppt.write({outputType:'arraybuffer'}) as ArrayBuffer));
  await fs.writeFile(file,imported?applyTemplate(bytes,imported):bytes);
  return deck.length;
 }

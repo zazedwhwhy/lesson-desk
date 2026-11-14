@@ -1,3 +1,5 @@
+import {hasMath} from '../core/math-text';
+import {MathSlideText} from './MathText';
 import React,{useEffect} from 'react';
 import type {PptTemplate} from '../core/ppt-templates';
 import {bodyFontSize,layoutBlocks,type Rect,type SlideBlock} from '../core/slide-layout';
@@ -15,7 +17,7 @@ export function LessonSlideView({slide:s,template:t,projectTitle,page,total,chin
   <h1 style={{...rect(l.title),fontSize:size(titleSize),fontFamily:f.heading,color:'#'+c.accent}}>{s.title}</h1>
   {s.image?<img style={{...rect(l.body),objectFit:'contain'}} src={s.image} alt={s.title+'原页'}/>:layoutBlocks(s.blocks,l,s.kind).map((b,i)=><section className="ppt-slide-block" key={i} style={{...rect(b),fontFamily:chinese?f.body:['source','question','practice'].includes(s.kind)?f.source:f.body}}>
    {b.label&&<h2 style={{fontFamily:f.body,fontSize:size(11),color:'#'+c.accent,height:.22/l.width*100+'cqw',marginBottom:.07/l.width*100+'cqw'}}>{b.label}</h2>}
-   <p style={{fontSize:size(bodyFontSize(s.kind)),color:'#'+(b.emphasis?c.accent:c.text),height:b.textH/l.width*100+'cqw'}}>{b.text}</p>
+   <p style={{fontSize:size(bodyFontSize(s.kind)),color:'#'+(b.emphasis?c.accent:c.text),height:b.textH/l.width*100+'cqw'}}>{hasMath(b.text)?<MathSlideText text={b.text} width={b.w} fontSize={bodyFontSize(s.kind)} color={'#'+(b.emphasis?c.accent:c.text)}/>:b.text}</p>
   </section>)}
   {l.height-(l.body.y+l.body.h)>=.34&&<footer style={{...rect({x:l.body.x,y:l.height-.32,w:l.body.w,h:.2}),fontSize:size(9),color:'#'+c.muted}}><span>{projectTitle}</span><span>{page} / {total}</span></footer>}
  </main>;

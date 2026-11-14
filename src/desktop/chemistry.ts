@@ -35,15 +35,17 @@ export function chemistryCaller(s:Settings,key:string):ChemCaller{return async(q
 };}
 export async function generateChemistry(p:Project,ids:string[],modules:ChemModule[],signal:AbortSignal,save:(p:Project,message:string)=>Promise<void>,call:ChemCaller,resume=false){
  if(p.subject!=='chemistry'||!p.chemistry)throw Error('请选择化学课件');
- if(!ids.length||!modules.length||new Set(ids).size!==ids.length||new Set(modules).size!==modules.length||modules.some(m=>!chemModules.includes(m)))throw Error('请选择题目和有效模块');
+ const savedScope=resume&&!ids.length&&!modules.length;
+ if(!savedScope&&(!ids.length||!modules.length||new Set(ids).size!==ids.length||new Set(modules).size!==modules.length||modules.some(m=>!chemModules.includes(m))))throw Error('请选择题目和有效模块');
  const next=structuredClone(p),d=next.chemistry!;
  for(const id of ids){const q=d.questions.find(q=>q.id===id);if(!q)throw Error('题目已不存在');const issues=chemChecks(q);if(issues.length)throw Error('第 '+q.number+' 题：'+issues.join('；'));}
+ if(savedScope){if(!d.tasks.length)throw Error('没有可继续的生成任务');for(const t of d.tasks){const q=d.questions.find(q=>q.id===t.questionId);if(!q||chemFingerprint(q)!==t.fingerprint||chemChecks(q).length)throw Error('上次任务的题面或核对状态已变化，请重新选择生成');}}
  const selected=d.questions.filter(q=>ids.includes(q.id));
- const tasks:NonNullable<Project['chemistry']>['tasks']=selected.flatMap(q=>modules.map(module=>{
+ const tasks:NonNullable<Project['chemistry']>['tasks']=savedScope?d.tasks.map(t=>({...t,state:t.state==='running'?'pending' as const:t.state})):selected.flatMap(q=>modules.map(module=>{
   const prev=d.tasks.find(t=>t.questionId===q.id&&t.module===module&&t.fingerprint===chemFingerprint(q));
   return resume&&prev?{...prev,state:prev.state==='running'?'pending' as const:prev.state}:{id:uid(),questionId:q.id,module,fingerprint:chemFingerprint(q),state:'pending' as const,error:'',attempts:0};
  }));
- d.tasks=[...d.tasks.filter(t=>!ids.includes(t.questionId)||!modules.includes(t.module)),...tasks];
+ d.tasks=tasks;
  await save(next,'已建立化学生成任务');
  for(const task of tasks){
   if(resume&&task.state==='complete')continue;

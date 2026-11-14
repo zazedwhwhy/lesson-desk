@@ -3,9 +3,10 @@ import {ArrowLeft,ChevronLeft,ChevronRight,Maximize} from 'lucide-react';
 import {LessonSlideView} from './LessonSlideView';
 import type {PptTemplate} from '../core/ppt-templates';
 import type {LessonSlide} from '../core/lesson-deck';
+import type {ChemSlide} from '../core/chemistry';
 import type {ChineseSlide} from '../core/chinese';
 
-export function PresentationView({deck,template,title,chinese=false,back,fullscreen}:{deck:(LessonSlide|ChineseSlide)[];template:PptTemplate;title:string;chinese?:boolean;back:()=>void;fullscreen:()=>void}){
+export function PresentationView({deck,template,title,chinese=false,back,fullscreen}:{deck:(LessonSlide|ChineseSlide|ChemSlide)[];template:PptTemplate;title:string;chinese?:boolean;back:()=>void;fullscreen:()=>void}){
  const [page,setPage]=useState(0);
  const index=Math.min(page,Math.max(0,deck.length-1));
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(['INPUT','TEXTAREA','SELECT','BUTTON'].includes((e.target as HTMLElement).tagName))return;if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();setPage(i=>Math.min(deck.length-1,i+1));}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();setPage(i=>Math.max(0,i-1));}if(e.key==='Escape')back();};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[deck.length,back]);
