@@ -1,3 +1,4 @@
+import {OcrReview} from './OcrReview';
 import React,{useEffect,useState} from 'react';
 import {type Project,uid} from '../core/model';
 import {chemModules,chemNames,chemKinds,chemKindNames,chemQuestionSchema,chemFingerprint,chemReady,chemSlides,chemChecks,type ChemQuestion,type ChemModule,type ChemVersion,type ChemSlide} from '../core/chemistry';
@@ -38,6 +39,7 @@ export function ChemistryWorkspace({project:p,onProject,onSave,home,settings,mes
   <nav className="chem-tabs" aria-label="化学备课步骤">{(['materials','generate','lesson'] as const).map((v,i)=><button key={v} aria-current={view===v?'page':undefined} disabled={busy||dirty} onClick={()=>setView(v)}>{['材料与题目','生成讲评','编排课件'][i]}</button>)}</nav>
   {(notice||message)&&<div className="notice" role="status">{notice||message}</div>}
   {busy&&<div className="chem-running" role="status">正在处理，请等待… <button onClick={()=>{invoke('cancel',p.id).catch(e=>setNotice(String(e)));}}>取消生成</button></div>}
+  {view==='materials'&&<OcrReview project={p} onProject={onProject} disabled={busy||dirty}/>}
   {view==='materials'&&<main className="chem-materials">
    <section className="panel chem-source"><h2>原材料</h2><div className="actions"><button disabled={busy||dirty} onClick={()=>run(async()=>{const result=await task('files',p.id,'paper');if(result)setSourceId(result.sources.at(-1)?.id||'');})}>导入试卷 PDF / Word</button><button disabled={busy||dirty} onClick={()=>run(()=>task('files',p.id,'answer'))}>导入答案</button></div>
     <select aria-label="化学原材料" value={sourceId} onChange={e=>setSourceId(e.target.value)}><option value="">选择原材料</option>{p.sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>

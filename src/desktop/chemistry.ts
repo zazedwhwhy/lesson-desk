@@ -1,3 +1,5 @@
+import {assertOcrReviewed,protectChemistry} from '../core/source-fidelity';
+import {preserveFailure} from './diagnostics';
 import {z} from 'zod';
 import {callAI} from './ai';
 import {ServiceStopError} from '../core/generation-model';
@@ -9,8 +11,9 @@ import {chemistrySystem as system,chemInstructions,chemistryOrganizeInstruction}
 const organized=z.object({questions:z.array(z.object({number:z.string().min(1),kind:chemQuestionSchema.shape.kind,stem:z.string().min(1),options:z.array(z.string()),answer:z.string(),sourceId:z.string(),pages:z.array(z.number().int().positive())})).min(1)});
 export async function organizeChemistry(p:Project,s:Settings,key:string,signal:AbortSignal){
  if(p.subject!=='chemistry'||!p.chemistry)throw Error('请选择化学课件');
+ assertOcrReviewed(p.sources);
  const out=await callAI(s,key,organized,chemistryOrganizeInstruction+'\n输入材料：'+JSON.stringify(p.sources.map(({id,name,role,blocks})=>({id,name,role,blocks}))),signal,undefined,system,[],32768);
- if(signal.aborted)throw Error('已取消整理，原题目未替换');
+ try{if(signal.aborted)throw Error('已取消整理，原题目未替换');
  const numbers=new Set<string>();
  for(const q of out.questions){
   const source=p.sources.find(s=>s.id===q.sourceId&&s.role==='paper');
@@ -18,9 +21,11 @@ export async function organizeChemistry(p:Project,s:Settings,key:string,signal:A
   if(q.pages.some(page=>!source.blocks.some(b=>b.page===page)))throw Error('整理结果页码不在来源中，原题目未替换');
   numbers.add(q.number);
  }
+ protectChemistry(p,out);
  const next=structuredClone(p);if(next.chemistry!.questions.length)next.chemistry!.history.push({at:new Date().toISOString(),questions:next.chemistry!.questions});
  next.chemistry!.questions=out.questions.map(q=>chemQuestionSchema.parse({...q,id:uid()}));next.chemistry!.tasks=[];
  return next;
+ }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});}
 }
 export type ChemCaller=(q:ChemQuestion,module:ChemModule,signal:AbortSignal)=>Promise<ChemResult>;
 export function chemistryCaller(s:Settings,key:string):ChemCaller{return async(q,module,signal)=>{

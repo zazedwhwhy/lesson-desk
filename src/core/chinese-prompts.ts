@@ -9,4 +9,4 @@ export const chineseInstructions:Record<ChineseModule,string>={
  practice:'只提炼目标考点，在新材料或新语境中编制一题可独立作答的练习；分块提供AI新编材料、题干/约束、参考作答、解析及原题考点如何迁移。不能只改原题人名、照抄原卷答案或把原题改写当新题。学生作答部分与答案分块。'
 };
 
-export const chineseOrganizeInstruction='整理整张语文试卷，覆盖所有板块和题目、子问、分值、注释。按板块与材料组组织，允许一个组多篇材料，题目materialIds可关联多材料。题号保留原卷，子问可写13(1)。kind按内容判断，不绑定题号。materials的sourceId、blockIds必须逐字使用来源标识；材料正文仅选取原卷文章及注释，不混题干。题面、选项、答案逐字保留，不推测缺失答案；answerSource有答案来源才provided，否则none。confirmed一律false。涉及图片但文字不全时在材料text保留需核对图片说明。不要遗漏作文、默写、语言运用和阅读中的表达题。';
+export const chineseOrganizeInstruction='整理整张语文试卷，覆盖所有板块和题目、子问、分值、注释。按板块与材料组组织，允许一个组多篇材料，题目materialIds可关联多材料。题号保留原卷，子问可写13(1)。kind按内容判断，不绑定题号。materials的sourceId、blockIds必须逐字使用来源标识；材料正文仅选取原卷文章及注释，不混题干。题面、选项、答案逐字保留，不推测缺失答案；整理只是来源关联，禁止同义改写、纠错、概括答案，保留题目故意设置的错字病句；answerSource有答案来源才provided，否则none。confirmed一律false。涉及图片但文字不全时在材料text保留需核对图片说明。不要遗漏作文、默写、语言运用和阅读中的表达题。';

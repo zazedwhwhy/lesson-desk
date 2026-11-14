@@ -1,5 +1,6 @@
 import {applyChineseReviewBatch,chineseQuestionIssues,splitChineseQuestion,mergeChineseQuestion} from '../core/chinese-review';
 import {chineseReviewScope} from './preparation-state';
+import {OcrReview} from './OcrReview';
 import React,{useState} from 'react';
 import {X,Plus} from 'lucide-react';
 import type {Project,Settings as ModelSettings} from '../core/model';
@@ -41,7 +42,7 @@ export function ChineseWorkspace({project:p,onSave,onProject,home,settings,messa
  return <>
   <WorkspaceHeader title={p.title} screen={screen} busy={busy} font={font} mode={mode} translated={translated} translationLabel="附文言译注" setFont={setFont} setMode={setMode} setTranslated={setTranslated} home={home} prepare={()=>onScreen(screen==='review'?'teach':'review')} present={setup} exportDeck={setup} fullscreen={()=>void run(fullscreen)} answers={()=>{setModule('answers');setMode('analysis');}} settings={settings}/>
   {(notice||(message!==dismissedMessage&&message))&&<div className="notice" role="status">{notice||message}<button aria-label="关闭提示" onClick={()=>{setNotice('');setDismissedMessage(message);}}><X size={16}/></button></div>}
-  {screen==='review'&&<><PreparationPage organize={<button className="primary" disabled={busy||!p.sources.length||p.sources.some(s=>!!s.ocrPages?.length)} onClick={()=>{if(d.groups.length&&!confirm('重新整理会保存当前材料与讲义到整理历史，再生成新的材料组。继续？'))return;void run(()=>task('organize'));}}>整理试卷</button>}
+  {screen==='review'&&<><OcrReview project={p} onProject={onProject} disabled={busy}/><PreparationPage organize={<button className="primary" disabled={busy||!p.sources.length||p.sources.some(s=>!!s.ocrPages?.length)} onClick={()=>{if(d.groups.length&&!confirm('重新整理会保存当前材料与讲义到整理历史，再生成新的材料组。继续？'))return;void run(()=>task('organize'));}}>整理试卷</button>}
  materials={<SourceMaterials paste={paste} setPaste={setPaste} project={p} busy={busy} sourceId={sourceId} setSourceId={setSourceId} change={change} run={run} task={(name,_id,...args)=>run(()=>task(name,...args))}/>}
  questions={<section className="panel" id="review-question-list"><h2>题目与答案</h2><div className="actions"><button disabled={busy} onClick={()=>void run(()=>edit(n=>{const id=uid();n.groups.push(chineseGroupSchema.parse({id,section:'自定义板块',title:'新材料组',kind:'information',materials:[],questions:[]}));setGroupId(id);} ))}><Plus size={17}/>新增材料组</button></div>
  <ReviewBatch questions={d.groups.flatMap(g=>g.questions)} selected={reviewSelected} setSelected={setReviewSelected} busy={busy} report={report} hint="核对前请对照原卷与答案；空题干、缺失关联或未核对图片会跳过。无参考答案的 AI 作答仍需核实。" apply={action=>void run(async()=>{const result=applyChineseReviewBatch(d,reviewSelected,action);await change(n=>{n.chinese=result.data;});setReport(['已处理 '+result.changed+' 题',...result.skipped]);})}/> {!d.groups.length&&<p className="empty">上传材料后点击“整理试卷”，也可手工新增材料与题目。</p>}

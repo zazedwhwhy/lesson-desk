@@ -1,3 +1,4 @@
+import {initializeDiagnostics} from './diagnostics';
 import {organizeChemistry,generateChemistry,chemistryCaller} from './chemistry';
 import {chemSlides,chemModules,type ChemModule} from '../core/chemistry';
 import {exportNotebook} from './notebook-output';
@@ -67,6 +68,7 @@ function notifyGeneration(p:Project){
     }catch{deliveryError('生成结果已保存，但系统通知发送失败，请在应用内查看进度。');}
 }
 app.whenReady().then(async () => {
+    initializeDiagnostics(app.getPath('userData'));
     await initializePrompts(app.getPath('userData'));
     app.setAppUserModelId(beta?'top.rainhollow.lessondesk.beta':'top.rainhollow.lessondesk');
     store = new Store(path.join(app.getPath('userData'), 'projects'));
@@ -184,7 +186,7 @@ app.whenReady().then(async () => {
         try{const result=await generateChinese(p,groups,modules,s,key,c.signal,async(next,message)=>{next.updatedAt=new Date().toISOString();await store.save(next);progress(next,message);},resume,questions);if(Notification.isSupported()){const n=new Notification({title:'语文讲义生成结束',body:`${result.chinese!.tasks.filter(t=>t.state==='complete').length} 项已保存，请核实后编排课件。`});notifications.add(n);n.on('close',()=>notifications.delete(n));n.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();});n.show();}return result;}finally{running.delete(id);}
     });
     handle('chinese-image',async(id:string,sid:string,pageNumber:number)=>{
-        if(running.has(id))throw Error('任务处理中');const p=await store.load(id),src=p.sources.find(s=>s.id===sid);if(!['chinese','chemistry'].includes(p.subject)||!src?.asset||src.kind!=='pdf'||!Number.isInteger(pageNumber)||pageNumber<1)throw Error('请选择PDF及有效页码');
+        if(running.has(id))throw Error('任务处理中');const p=await store.load(id),src=p.sources.find(s=>s.id===sid);if(!['english','chinese','chemistry'].includes(p.subject)||!src?.asset||src.kind!=='pdf'||!Number.isInteger(pageNumber)||pageNumber<1)throw Error('请选择PDF及有效页码');
         const {getDocument}=await import('pdfjs-dist/legacy/build/pdf.mjs'),{createCanvas}=await import('@napi-rs/canvas');const doc=await getDocument({data:new Uint8Array(await fs.readFile(path.join(store.dir(id),src.asset))),useSystemFonts:true}).promise;
         try{if(pageNumber>doc.numPages)throw Error('页码超出原文件');const page=await doc.getPage(pageNumber),vp=page.getViewport({scale:1.3}),canvas=createCanvas(Math.ceil(vp.width),Math.ceil(vp.height));await page.render({canvas:canvas as any,canvasContext:canvas.getContext('2d') as any,viewport:vp}).promise;return canvas.toDataURL('image/jpeg',80);}finally{await doc.loadingTask.destroy();}
     });

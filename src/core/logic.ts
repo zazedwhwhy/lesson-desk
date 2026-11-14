@@ -1,3 +1,4 @@
+import {reconcileOcrReview} from './source-fidelity';
 import {reviseChemistry} from './chemistry';
 import { active, type Project, type Question, type Slide, type Passage } from './model';
 import{exerciseText,exerciseAnswerText}from'./exercise';
@@ -11,7 +12,7 @@ export function issues(p: Project, q: Question): string[] { if (q.excluded)
     out.push('缺少听力原文'); if (active(q)?.conflict)
     out.push('AI答案与参考答案冲突'); return out; }
 const source=(a:Passage|undefined)=>a?[a.type,a.paragraphs,a.pool]:null;
-export function reviseProject(old: Project, next: Project): Project { if(next.chemistry)reviseChemistry(old.chemistry,next.chemistry); for (const q of next.questions) {
+export function reviseProject(old: Project, next: Project): Project { reconcileOcrReview(old.sources,next.sources); if(next.chemistry)reviseChemistry(old.chemistry,next.chemistry); for (const q of next.questions) {
     const prev = old.questions.find(x => x.id === q.id);
     if (!prev)
         continue;

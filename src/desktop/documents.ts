@@ -1,3 +1,4 @@
+import {pdfReadingLines} from '../core/pdf-reading-lines';
 import { unzipSync } from 'fflate';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -17,26 +18,11 @@ export async function readDocument(file: string, role: Source['role']): Promise<
         for (let n = 1; n <= doc.numPages; n++) {
             const page = await doc.getPage(n);
             const c = await page.getTextContent();
-            const rows = c.items.filter((x): x is any => 'str' in x).map((x: any) => ({ text: x.str as string, x: x.transform[4] as number, y: x.transform[5] as number }));
+            const rows = c.items.filter((x): x is any => 'str' in x).map((x: any) => ({ text: x.str as string, x: x.transform[4] as number, y: x.transform[5] as number, width:x.width as number,height:x.height as number }));
             if(rows.map(r=>r.text).join('').trim().length<30){source.ocrPages.push(n);source.warnings.push('第'+n+'页没有足够文字，需扫描识别。');continue;}
             const w = page.getViewport({ scale: 1 }).width;
-            const left = rows.filter(x => x.x < w * .45), right = rows.filter(x => x.x > w * .5);
             source.warnings.push(`第${n}页：阅读顺序由版面估算，请对照原页核对。`);
-            const columns = left.length > 8 && right.length > 8 ? [rows.filter(x => x.x <= w * .5), right] : [rows];
-            for (const column of columns) {
-                column.sort((a, b) => Math.abs(a.y - b.y) > 3 ? b.y - a.y : a.x - b.x);
-                let line: typeof rows = [];
-                const flush = () => { if (line.length) {
-                    source.blocks.push({ id: uid(), text: line.map(x => x.text).join(' '), page: n, x: line[0].x, y: line[0].y });
-                    line = [];
-                } };
-                for (const r of column) {
-                    if (line.length && Math.abs(r.y - line[0].y) > 3)
-                        flush();
-                    line.push(r);
-                }
-                flush();
-            }
+            for(const line of pdfReadingLines(rows,w))source.blocks.push({id:uid(),text:line.text,page:n,x:line.x,y:line.y});
         }
     }
     finally {

@@ -7,4 +7,4 @@ export const chemInstructions:Record<ChemModule,string>={
  experiment:'实验剖析：目的与反应原理→各装置/试剂作用→操作顺序及原因→预期现象→证据支持的结论及局限→误差方向与理由→改进和必要安全条件。工艺流程逐环节分析物质去向。图不清或本题不涉及实验/流程时说明，不能凭空虚构实验。',
  practice:'考点演练：只生成一道有针对性的变式题。blocks 必须恰好三个且标签依次为“题目”“答案”“解析与迁移”，题目中不泄露答案。给足独立作答条件，不引用不存在的附图；注明 AI 新编。'
 };
-export const chemistryOrganizeInstruction='整理化学试卷，逐题完整保留条件、选项和题号。sourceId 必须来自试卷材料；pages 是原文件页码。未知答案留空，不作答。图片位置保留提示，所有整理结果需教师对照原页。';
+export const chemistryOrganizeInstruction='整理化学试卷，逐题完整保留条件、选项和题号。sourceId 必须来自试卷材料；pages 是原文件页码。未知答案留空，不作答。整理阶段不解题、不配平、不校订；stem和options逐字保留该题完整原文及所有追问，不以图略解释改写原文字句。answer只摘录答案来源的连续原文，不概括或重新计算参考解析，不能改写原反应式。图片另行核对，所有整理结果需教师对照原页。';

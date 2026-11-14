@@ -1,3 +1,5 @@
+import {assertOcrReviewed,protectEnglish} from '../core/source-fidelity';
+import {preserveFailure} from './diagnostics';
 import {apiSystem as guard,analysisInstruction,organizeInstruction} from '../core/request-instructions';
 import {promptBook} from './prompt-store';
 import {GenerationContentError} from '../core/errors';
@@ -17,7 +19,7 @@ const analysisEnvelope = z.object({explanations:z.array(z.unknown())});
 export async function callAI<T>(settings: Settings, key: string, schema: z.ZodType<T>, prompt: string, signal: AbortSignal, onRetry: (s: string) => void = () => { },systemPrompt=guard,images:string[]=[],maxOutputTokens=16384,outputSchema:z.ZodType=schema): Promise<T> { if (!key)
     throw new ServiceStopError('请先在设置中保存API Key'); if (!settings.model.trim())
     throw new ServiceStopError('请填写模型名称'); let base:URL;try{base=new URL(settings.baseUrl);}catch{throw new ServiceStopError('API地址格式无效，请检查模型设置');} if (base.protocol !== 'https:' && !(base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname)))
-    throw new ServiceStopError('API地址必须使用HTTPS，本机接口可使用HTTP'); const composed=promptBook.compose(prompt,systemPrompt);prompt=composed.prompt;systemPrompt=composed.system;const jsonSchema = z.toJSONSchema(outputSchema); delete (jsonSchema as any).$schema; const open = settings.provider === 'openai'; const url = settings.baseUrl.replace(/\/$/, '') + (open ? '/responses' : '/chat/completions'); const userText=prompt+'\n输出必须为json，结构：'+JSON.stringify(jsonSchema);const userContent=images.length?[{type:'text',text:userText},...images.map(url=>({type:'image_url',image_url:{url}}))]:userText; const body = open ? { model: settings.model,max_output_tokens:maxOutputTokens, input: [{ role: 'system', content: systemPrompt }, { role: 'user', content: images.length?[{type:'input_text',text:prompt},...images.map(image_url=>({type:'input_image',image_url,detail:'auto'}))]:prompt }], text: { format: { type: 'json_schema', name: 'lesson_content', strict: true, schema: jsonSchema } } } : { model: settings.model,max_tokens:maxOutputTokens, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }], ...(settings.provider==='deepseek'?{thinking:{type:'disabled'}}:{}),response_format: { type: 'json_object' } }; promptBook.record(composed.id,{assembledAt:new Date().toISOString(),body:JSON.parse(JSON.stringify(body,(k,v)=>k==='url'&&typeof v==='string'&&v.startsWith('data:')?'[图片内容，预览省略]':v))});for (let attempt = 0; attempt < 3; attempt++) {
+    throw new ServiceStopError('API地址必须使用HTTPS，本机接口可使用HTTP'); const composed=promptBook.compose(prompt,systemPrompt);prompt=composed.prompt;systemPrompt=composed.system;const jsonSchema = z.toJSONSchema(outputSchema); delete (jsonSchema as any).$schema; const open = settings.provider === 'openai'; const url = settings.baseUrl.replace(/\/$/, '') + (open ? '/responses' : '/chat/completions'); const userText=prompt+'\n输出必须为json，结构：'+JSON.stringify(jsonSchema);const userContent=images.length?[{type:'text',text:userText},...images.map(url=>({type:'image_url',image_url:{url}}))]:userText; const body = open ? { model: settings.model,max_output_tokens:maxOutputTokens, input: [{ role: 'system', content: systemPrompt }, { role: 'user', content: images.length?[{type:'input_text',text:prompt},...images.map(image_url=>({type:'input_image',image_url,detail:'auto'}))]:prompt }], text: { format: { type: 'json_schema', name: 'lesson_content', strict: true, schema: jsonSchema } } } : { model: settings.model,max_tokens:maxOutputTokens, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }], ...(settings.provider==='deepseek'?{thinking:{type:'disabled'}}:{}),response_format: { type: 'json_object' } }; promptBook.record(composed.id,{assembledAt:new Date().toISOString(),body:JSON.parse(JSON.stringify(body,(k,v)=>k==='url'&&typeof v==='string'&&v.startsWith('data:')?'[图片内容，预览省略]':v))});let rawResponse:unknown;try{for (let attempt = 0; attempt < 3; attempt++) {
     const timeout = AbortSignal.timeout(120000);
     let r: Response;
     try {
@@ -41,7 +43,7 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
         }
         throw new ServiceStopError(`API请求失败（${r.status}）。请检查凭据、余额、模型与服务地址；未执行项可稍后继续。`);
     }
-    const data: any = await r.json();
+    const data: any = await r.json();rawResponse=data;
     let content: string;
     if (open) {
         if (data.status === 'incomplete')
@@ -69,8 +71,8 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
     if (!result.success)
         throw new GenerationContentError('AI内容结构不符合要求：' + result.error.issues.slice(0, 3).map(x => x.path.join('.') + ':' + x.message).join(';'));
     return result.data;
-} throw new GenerationContentError('重试次数已用尽'); }
-export async function organize(p: Project, s: Settings, key: string, signal: AbortSignal) {  const out = await callAI(s, key, organized, organizeInstruction+'\n材料：'+JSON.stringify(p.sources.map(s=>({id:s.id,name:s.name,role:s.role,blocks:s.blocks}))), signal,()=>{},guard,[],32768); const ids = new Set<string>(); for (const a of out.passages) {
+} throw new GenerationContentError('重试次数已用尽'); }catch(error){return preserveFailure(error,{stage:'api-output',task:composed.id,model:settings.model,rawResponse});} }
+export async function organize(p: Project, s: Settings, key: string, signal: AbortSignal) { assertOcrReviewed(p.sources); const out = await callAI(s, key, organized, organizeInstruction+'\n材料：'+JSON.stringify(p.sources.map(s=>({id:s.id,name:s.name,role:s.role,blocks:s.blocks}))), signal,()=>{},guard,[],32768); try{const ids = new Set<string>(); for (const a of out.passages) {
     if (ids.has(a.id))
         throw Error('AI整理的材料ID重复');
     ids.add(a.id);
@@ -78,7 +80,7 @@ export async function organize(p: Project, s: Settings, key: string, signal: Abo
     if (qids.has(q.id) || !ids.has(q.passageId))
         throw Error('AI整理的题目关联无效');
     qids.add(q.id);
-} p.passages = out.passages.map(a => passageSchema.parse(a)); p.questions = out.questions.map(q => questionSchema.parse({ ...q, confirmed: false, excluded: false, stale: false, versions: [] })); return attachSourceReferences(p); }
+} protectEnglish(p,out); const next=structuredClone(p); next.passages = out.passages.map(a => passageSchema.parse(a)); next.questions = out.questions.map(q => questionSchema.parse({ ...q, confirmed: false, excluded: false, stale: false, versions: [] })); return attachSourceReferences(next); }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});} }
 export async function generateGroup(p:Project,pid:string,selected:string[],s:Settings,key:string,signal:AbortSignal,onRetry:(message:string)=>void,_legacy?:boolean,feedback=''){
  const a=p.passages.find(a=>a.id===pid),qs=p.questions.filter(q=>q.passageId===pid&&selected.includes(q.id)&&!q.excluded);if(!a||!qs.length)throw Error('没有可生成的题目');
  const catalog=createCitationCatalog(a.paragraphs),prompt=(feedback?'上次此题的校验错误如下，请针对性修正，不改参考答案：'+feedback+'\n':'')+analysisInstruction+"\n输入："+JSON.stringify({passage:{id:a.id,title:a.title,type:a.type,paragraphs:citationParagraphs(a.paragraphs,catalog),pool:a.pool},questions:qs.map(q=>({id:q.id,number:q.number,type:q.type,stem:q.stem,options:optionEntries(q.options),referenceAnswer:q.answer}))});
