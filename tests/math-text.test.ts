@@ -11,3 +11,5 @@ it('过宽公式阻断输出，不裁切或缩成不可读小字',()=>{expect(()
 it('货币原文不变，化学中未闭合公式明确阻断',()=>{const text='The ticket costs $5 and the book costs $10.';expect(splitMath(text).some(p=>p.math)).toBe(false);expect(splitMath(text).map(p=>p.raw).join('')).toBe(text);expect(()=>mathLines(String.raw`浓度 $\frac{n}{V}`,11,22)).toThrow(/未闭合/);});
 
 it('宏定义只在当前公式生效，不污染另一题或另一课件',()=>{expect(renderFormula(String.raw`\def\customchem{X}\customchem`).svg).toContain('<path');expect(()=>renderFormula(String.raw`\customchem`)).toThrow(/公式/);});
+
+it('数字开头的未闭合运算或反应式不能被当作金额',()=>{for(const text of ['计算 $2+3','反应 $2H2 + O2 -> 2H2O',String.raw`计算 $2\frac{n}{V}`])expect(()=>mathLines(text,11,22)).toThrow(/未闭合/);expect(splitMath('费用 $5。').some(p=>p.math)).toBe(false);});

@@ -34,7 +34,8 @@ export function splitMath(text:string):MathPart[]{
   const close=open==='\\['?'\\]':open==='\\('?'\\)':open;let end=i+open.length;
   while((end=text.indexOf(close,end))>=0&&escaped(end))end+=close.length;
   // Dollar amounts such as "$5 ... $10" remain literal, even in chemistry prose.
-  if(open==='$'&&/\d/.test(text[i+1]||'')&&(end<0||/\d/.test(text[end+1]||''))){i++;continue;}
+  if(open==='$'&&/\d/.test(text[i+1]||'')&&end>=0&&/\d/.test(text[end+1]||'')){i=end+1;continue;}
+  if(open==='$'&&end<0&&/^\d+(?:\.\d+)?(?:\s*$|[，。！？,.;!?])/.test(text.slice(i+1))){i++;continue;}
   if(end<0){if(i>start)parts.push({raw:text.slice(start,i),text:text.slice(start,i),math:false,display:false});parts.push({raw:text.slice(i),text:text.slice(i+open.length),math:true,display:open.length===2,error:'公式定界符未闭合，请补齐 '+close});start=text.length;break;}
   if(i>start)parts.push({raw:text.slice(start,i),text:text.slice(start,i),math:false,display:false});
   parts.push({raw:text.slice(i,end+close.length),text:text.slice(i+open.length,end),math:true,display:open==='$$'||open==='\\['});
