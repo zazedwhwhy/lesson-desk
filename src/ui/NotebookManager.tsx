@@ -1,4 +1,3 @@
-import {MathText} from './MathText';
 import {chemFingerprint} from '../core/chemistry';
 import {assertNotebookPracticeComplete} from '../core/notebook-source';
 import {chineseFingerprint} from '../core/chinese';

@@ -12,7 +12,7 @@ export const outputSchema=z.object({ids:z.array(z.string().uuid()).min(1),audien
 export type NotebookOutput=z.infer<typeof outputSchema>;
 export type NotebookSlide={title:string;section:string;kind:string;blocks:SlideBlock[];image?:string};
 export function notebookDeck(all:NotebookEntry[],raw:unknown):NotebookSlide[]{const o=outputSchema.parse(raw);const slides:NotebookSlide[]=[];for(const id of o.ids){const e=all.find(e=>e.id===id&&!e.archived);if(!e)throw Error('所选条目不存在或已归档');if(!e.reviewed)throw Error('请先核对条目：'+e.title);if(o.audience==='student'&&(!e.studentReady||!e.studentText.trim()))throw Error('请先确认学生版题面：'+e.title);
- const add=(kind:string,label:string,text:string)=>{if(!text.trim())return;for(const blocks of paginateBlocks([{label,text}],defaultSlideLayout,kind))slides.push({title:e.title,section:e.projectTitle,kind,blocks});};
+ const add=(kind:string,label:string,text:string)=>{if(!text.trim())return;for(const blocks of paginateBlocks([{label,text,math:e.subject==='chemistry'}],defaultSlideLayout,kind))slides.push({title:e.title,section:e.projectTitle,kind,blocks});};
  if(o.modules.includes('material')){add('source','材料',e.material);for(const image of e.images)slides.push({title:e.title,section:e.projectTitle,kind:'source',blocks:[],image});}
  if(o.modules.includes('question'))add('question',o.audience==='student'?'题目（请独立作答）':'题目',o.audience==='student'?e.studentText:e.studentText||e.text);
  if(o.audience==='teacher'&&o.modules.includes('answer'))add('analysis','答案与讲解',e.answer||e.context);

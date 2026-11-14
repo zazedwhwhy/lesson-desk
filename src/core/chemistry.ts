@@ -58,7 +58,7 @@ export function chemSlides(d:Chemistry,selected:string[],layout:SlideLayout=defa
   const versions=q.versions.filter(v=>selected.includes(v.id)).sort((a,b)=>chemModules.indexOf(a.module)-chemModules.indexOf(b.module));
   if(!versions.length&&!selected.includes('question:'+q.id))continue;
   const checks=chemChecks(q);if(checks.length)throw Error('第 '+q.number+' 题：'+checks.join('；'));
-  const add=(title:string,blocks:SlideBlock[],kind='analysis',version?:string)=>paginateBlocks(blocks,layout,kind).forEach((blocks,i)=>slides.push({id:'chem-'+slides.length,kind,title:title+(i?'（续）':''),section:'化学 · '+chemKindNames[q.kind],questionId:q.id,sourceVersionId:version,blocks}));
+  const add=(title:string,blocks:SlideBlock[],kind='analysis',version?:string)=>paginateBlocks(blocks.map(b=>({...b,math:true})),layout,kind).forEach((blocks,i)=>slides.push({id:'chem-'+slides.length,kind,title:title+(i?'（续）':''),section:'化学 · '+chemKindNames[q.kind],questionId:q.id,sourceVersionId:version,blocks}));
   // A selected explanation always carries the original question and figures.
   add('第 '+q.number+' 题',[{label:'题面',text:[q.stem,...q.options].join('\n')}],'question');
   for(const image of q.images)slides.push({id:'chem-'+slides.length,kind:'source',title:'第 '+q.number+' 题 · '+image.name,section:image.page?'原材料第 '+image.page+' 页':'题目配图',questionId:q.id,blocks:[],image:image.data});

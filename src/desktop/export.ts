@@ -16,7 +16,7 @@ export async function exportPpt(p:Project,file:string,selection:LessonSelection|
  const deck=p.subject==='chemistry'?chemSlides(p.chemistry!,selection as string[],layout):p.subject==='chinese'?chineseSlides(p.chinese!,selection as string[],layout):buildLessonDeck(p,selection as LessonSelection,layout);
  return exportLessonSlides(deck,p.title,p.subject,file,loaded);
 }
-export async function exportLessonSlides(deck:{title:string;section:string;kind:string;blocks:{label:string;text:string;emphasis?:boolean}[];image?:string}[],projectTitle:string,subject:string,file:string,loaded:LoadedTemplate={template:defaultPptTemplate}){
+export async function exportLessonSlides(deck:{title:string;section:string;kind:string;blocks:{label:string;text:string;emphasis?:boolean;math?:boolean}[];image?:string}[],projectTitle:string,subject:string,file:string,loaded:LoadedTemplate={template:defaultPptTemplate}){
  const {template,imported}=loaded,{layout,colors,fonts}=template;
  const ppt=new pptxgen();ppt.defineLayout({name:'LESSON',width:layout.width,height:layout.height});ppt.layout='LESSON';
  ppt.author='讲题工作台';ppt.subject=subject==='chemistry'?'化学试卷讲解':subject==='chinese'?'语文试卷讲解':'英语试卷讲解';ppt.title=projectTitle;
@@ -32,7 +32,7 @@ export async function exportLessonSlides(deck:{title:string;section:string;kind:
   for(const b of layoutBlocks(s.blocks,layout,s.kind)){
    if(b.y+b.h>body.y+body.h+.001)throw Error(`第 ${i+1} 页内容超过模板正文区域，已停止导出`);
    if(b.label)slide.addText(b.label,{x:b.x,y:b.y,w:b.w,h:.22,fontFace:fonts.body,fontSize:11,color:colors.accent,bold:b.emphasis,margin:0,fit:'shrink'});
-   if(hasMath(b.text)){
+   if(b.math&&hasMath(b.text)){
     const size=bodyFontSize(s.kind),color=b.emphasis?colors.accent:colors.text;let y=b.textY;
     for(const row of mathLines(b.text,b.w,size)){
      for(const run of row.runs){const box={x:b.x+run.x,y:y+(row.h-run.h)/2,w:run.w,h:run.h};
