@@ -33,4 +33,10 @@ describe('语文共用授课选择流程',()=>{
   const s=defaultChineseLessonSelection(d);expect(s.modules.g).not.toContain('source');
   s.groupIds=['g'];s.modules.g=['source'];expect(resolveChineseLessonSelection(d,s).issues.join()).toMatch(/图片.*核对/);
  });
+ it('新生成的未确认或待核实版本不挤掉已确认的有效旧版',()=>{
+  const d=sample(),g=d.groups[0];g.versions[1].confirmed=false;
+  expect(resolveChineseLessonSelection(d,defaultChineseLessonSelection(d)).ids).toEqual(['source:g','old']);
+  g.versions[1].confirmed=true;g.versions[1].result.status='needs_review';
+  expect(resolveChineseLessonSelection(d,defaultChineseLessonSelection(d)).ids).toEqual(['source:g','old']);
+ });
 });

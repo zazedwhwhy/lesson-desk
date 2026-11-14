@@ -6,6 +6,9 @@ export const chineseLessonNames:Record<ChineseLessonModule,string>={source:'原�
 export function latestChineseVersion(g:ChineseGroup,module:ChineseModule,questionId?:string){
  return g.versions.filter(v=>v.module===module&&v.questionId===questionId).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).at(-1);
 }
+export function latestAvailableChineseVersion(d:ChineseData,g:ChineseGroup,module:ChineseModule,questionId?:string){
+ return g.versions.filter(v=>v.module===module&&v.questionId===questionId&&chineseAvailable(d,g,v)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).at(-1);
+}
 export function chineseLessonReason(d:ChineseData,g:ChineseGroup,module:ChineseLessonModule,questionIds:string[]):string|null{
  if(module==='source')return g.materials.some(m=>m.image&&!m.imageConfirmed)?'图片尚未核对':g.materials.some(m=>m.text.trim()||m.image)?null:'尚无原文';
  if(!applicableChineseModules(g).includes(module))return '不适用于本组材料';
@@ -17,9 +20,8 @@ export function chineseLessonReason(d:ChineseData,g:ChineseGroup,module:ChineseL
   const q=g.questions.find(q=>q.id===id);
   if(q?.excluded)return '所选题目已排除';
   if(q&&!q.confirmed)return '题面尚未核对';
-  const v=latestChineseVersion(g,module,id);
-  if(!v)return '尚未生成';
-  if(!chineseAvailable(d,g,v))return '讲义未确认、待核实或已过期';
+  const v=latestAvailableChineseVersion(d,g,module,id);
+  if(!v)return latestChineseVersion(g,module,id)?'讲义未确认、待核实或已过期':'尚未生成';
  }
  return null;
 }
@@ -44,8 +46,8 @@ export function resolveChineseLessonSelection(d:ChineseData,s:ChineseLessonSelec
    const reason=chineseLessonReason(d,g,m,s.questionIds);
    if(reason){issues.push(`${g.title} · ${chineseLessonNames[m]}：${reason}`);continue;}
    if(m==='source')ids.push('source:'+g.id);
-   else if(m==='analysis'||m==='practice')for(const q of qs)ids.push(latestChineseVersion(g,m,q.id)!.id);
-   else ids.push(latestChineseVersion(g,m)!.id);
+   else if(m==='analysis'||m==='practice')for(const q of qs)ids.push(latestAvailableChineseVersion(d,g,m,q.id)!.id);
+   else ids.push(latestAvailableChineseVersion(d,g,m)!.id);
   }
  }
  if(!ids.length&&!issues.length)issues.push('请至少选择一项有效内容');
