@@ -19,4 +19,4 @@
 
 ## 离线公式渲染
 
-MathJax 3.2.2（含 TeX 字体路径数据）使用 Apache-2.0，mhchemparser 使用 MIT。两者随应用打包，许可证位于 assets/licenses；不需要外部 CDN。
+MathJax 3.2.2（含 TeX 字体路径数据）使用 Apache-2.0，mhchemparser 使用 Apache-2.0。两者随应用打包，许可证位于 assets/licenses；不需要外部 CDN。

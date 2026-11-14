@@ -7,9 +7,10 @@ import os from 'node:os';
 import path from 'node:path';
 afterEach(()=>vi.unstubAllGlobals());
 it('无效输出保留诊断，不保存凭据或图片内容',async()=>{
+ const testKey=['sk','0'.repeat(24)].join('-'); // Synthetic only: exercises credential redaction without a token literal.
  const raw='not JSON';vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({choices:[{finish_reason:'stop',message:{content:raw}}]})));
- await expect(callAI({provider:'custom',model:'test',baseUrl:'https://example.test'},'sk-1234567890123456789012345',z.object({ok:z.boolean()}),'test',new AbortController().signal)).rejects.toThrow(/诊断编号/);
- const d=JSON.stringify(diagnosticSnapshot().at(-1));expect(d).toContain(raw);expect(d).not.toContain('sk-1234567890123456789012345');expect(d).not.toContain('Authorization');
+ await expect(callAI({provider:'custom',model:'test',baseUrl:'https://example.test'},testKey,z.object({ok:z.boolean()}),'test',new AbortController().signal)).rejects.toThrow(/诊断编号/);
+ const d=JSON.stringify(diagnosticSnapshot().at(-1));expect(d).toContain(raw);expect(d).not.toContain(testKey);expect(d).not.toContain('Authorization');
 });
 it('诊断确实写入本地，保存失败仍保留原异常类型与上下文',async()=>{
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lesson-diagnostic-'));
