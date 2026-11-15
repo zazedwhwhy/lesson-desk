@@ -31,6 +31,6 @@ it('取消单题修正仍保留同批已合格题，不再发后续请求',async
  const result=await runGeneration(p,c.signal,generationExecutor(settings,'mock',c.signal,()=>{}),async()=>{});expect(result.job.state).toBe('cancelled');expect(result.questions[1].versions).toHaveLength(1);expect(result.job.done).toEqual([q2.id]);expect(result.job.tasks![0].state).toBe('pending');expect(fetch).toHaveBeenCalledTimes(2);
 });
 it('单题持续无效JSON最多自动修正一次，不能无限循环',async()=>{
- const p=fixture(),fetch=vi.fn().mockResolvedValue(response('{broken'));vi.stubGlobal('fetch',fetch);const signal=new AbortController().signal;
+ const p=fixture(),fetch=vi.fn(async()=>response('{broken'));vi.stubGlobal('fetch',fetch);const signal=new AbortController().signal;
  const result=await runGeneration(p,signal,generationExecutor(settings,'mock',signal,()=>{}),async()=>{});expect(result.job.state).toBe('failed');expect(result.questions.every(q=>q.versions.length===0)).toBe(true);expect(fetch).toHaveBeenCalledTimes(3);
 });

@@ -1,3 +1,4 @@
+import { connectionSettings } from '../core/ai-settings';
 import {initializeDiagnostics} from './diagnostics';
 import {organizeChemistry,generateChemistry,chemistryCaller} from './chemistry';
 import {chemSlides,chemModules,type ChemModule} from '../core/chemistry';
@@ -228,13 +229,12 @@ app.whenReady().then(async () => {
     handle('prompts',()=>promptBook.snapshot());
     handle('save-prompt',(id:string,value:unknown)=>savePrompt(id,value));
     handle('settings', async () => { const s = await settings(); const { encryptedKey, ...clean } = s; return { ...clean, hasKey: !!encryptedKey }; });
-    handle('save-settings', async (s: Settings) => { if (!['openai', 'deepseek', 'custom'].includes(s.provider) || !s.model?.trim())
-        throw Error('服务商或模型无效'); const previous = await settings(); const value: any = { provider: s.provider, model: s.model.trim(), baseUrl: s.baseUrl.trim(),...generationCounts({...previous,...s}) }; if (s.key?.trim()) {
+    handle('save-settings', async (s: Settings) => { const connection = connectionSettings(s); const previous = await settings(); const value: any = { ...connection,...generationCounts({...previous,...s}) }; if (s.key?.trim()) {
         if (!safeStorage.isEncryptionAvailable())
             throw Error('系统凭据加密不可用，未保存Key');
         value.encryptedKey = safeStorage.encryptString(s.key.trim()).toString('base64');
     }
-    else if (previous.provider === s.provider && previous.baseUrl === s.baseUrl)
+    else if (previous.provider === connection.provider && previous.baseUrl.trim().replace(/\/+$/, '') === connection.baseUrl)
         value.encryptedKey = previous.encryptedKey; await fs.writeFile(settingsFile(), JSON.stringify(value)); return true; });
     const templateStore=new TemplateStore(path.join(app.getPath('userData'),'ppt-templates'));
     handle('ppt-templates',()=>templateStore.list());

@@ -30,7 +30,7 @@ export type Slide = {
     questionId?: string;
 };
 export type Settings = {
-    provider: 'openai' | 'deepseek' | 'custom';
+    provider: 'openai' | 'claude' | 'deepseek' | 'custom';
     model: string;
     baseUrl: string;
     hasKey?: boolean;

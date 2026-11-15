@@ -68,6 +68,19 @@ npm run package
 
 AI 请求会把本次任务所需的材料发送给你配置的服务商，可能产生费用；联网生成前请确认材料的使用权限和服务商设置。应用没有内置可供公众使用的 API Key。
 
+连接设置支持以下协议，适用于扫描识别及英语、语文、化学的 AI 功能：
+
+| 服务商选项 | 默认基础地址 | API 协议 |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` | Responses |
+| Claude（Anthropic） | `https://api.anthropic.com/v1` | Messages |
+| DeepSeek | `https://api.deepseek.com` | Chat Completions |
+| OpenAI兼容接口 | 按服务商说明填写 | Chat Completions |
+
+模型名称填写账号实际可用的模型；第三方代理按其支持的协议选择对应选项，并填写代理的基础地址，不要附加 `/responses`、`/messages` 或 `/chat/completions`。扫描识别、语文图片及化学图片模式需要所选模型支持图片输入。程序不按模型名称猜测图片能力，也不会在失败时自动切换模型、服务商或协议。
+
+Claude 通过任务提示和 JSON 结构要求生成内容，并在本地严格验证结果；OpenAI 使用结构化输出并进行同样的本地验证。截断、拒绝、无效结构和服务错误不会写成成功内容。扫描中途失败时，已保存页保留，未完成页可重试。协议实现参照 [OpenAI Responses](https://platform.openai.com/docs/api-reference/responses/create) 和 [Claude Messages](https://platform.claude.com/docs/en/api/messages/create)；自动化验证使用模拟响应，不代表真实账号或所有模型均已实测。
+
 ## 数据与边界
 
 课件、设置和模板保存在 Electron 的当前用户数据目录。API Key 通过 Electron `safeStorage` 加密，仍应保护好当前 Windows 账户和应用数据目录。课件包不包含 API 凭据。

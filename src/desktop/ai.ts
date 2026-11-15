@@ -1,3 +1,6 @@
+import { connectionSettings } from '../core/ai-settings';
+import { providerRequest, providerText, requestPreview } from './ai-providers';
+import { restoreOptionalFields } from './openai-schema';
 import {assertOcrReviewed,protectEnglish} from '../core/source-fidelity';
 import {preserveFailure} from './diagnostics';
 import {apiSystem as guard,analysisInstruction,organizeInstruction} from '../core/request-instructions';
@@ -16,19 +19,24 @@ const analysisItem = z.object({questionId:z.string(),answer:z.string().min(1),an
 const generated = z.object({explanations:z.array(analysisItem)});
 const analysisEnvelope = z.object({explanations:z.array(z.unknown())});
 
-export async function callAI<T>(settings: Settings, key: string, schema: z.ZodType<T>, prompt: string, signal: AbortSignal, onRetry: (s: string) => void = () => { },systemPrompt=guard,images:string[]=[],maxOutputTokens=16384,outputSchema:z.ZodType=schema): Promise<T> { if (!key)
-    throw new ServiceStopError('请先在设置中保存API Key'); if (!settings.model.trim())
-    throw new ServiceStopError('请填写模型名称'); let base:URL;try{base=new URL(settings.baseUrl);}catch{throw new ServiceStopError('API地址格式无效，请检查模型设置');} if (base.protocol !== 'https:' && !(base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname)))
-    throw new ServiceStopError('API地址必须使用HTTPS，本机接口可使用HTTP'); const composed=promptBook.compose(prompt,systemPrompt);prompt=composed.prompt;systemPrompt=composed.system;const jsonSchema = z.toJSONSchema(outputSchema); delete (jsonSchema as any).$schema; const open = settings.provider === 'openai'; const url = settings.baseUrl.replace(/\/$/, '') + (open ? '/responses' : '/chat/completions'); const userText=prompt+'\n输出必须为json，结构：'+JSON.stringify(jsonSchema);const userContent=images.length?[{type:'text',text:userText},...images.map(url=>({type:'image_url',image_url:{url}}))]:userText; const body = open ? { model: settings.model,max_output_tokens:maxOutputTokens, input: [{ role: 'system', content: systemPrompt }, { role: 'user', content: images.length?[{type:'input_text',text:prompt},...images.map(image_url=>({type:'input_image',image_url,detail:'auto'}))]:prompt }], text: { format: { type: 'json_schema', name: 'lesson_content', strict: true, schema: jsonSchema } } } : { model: settings.model,max_tokens:maxOutputTokens, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }], ...(settings.provider==='deepseek'?{thinking:{type:'disabled'}}:{}),response_format: { type: 'json_object' } }; promptBook.record(composed.id,{assembledAt:new Date().toISOString(),body:JSON.parse(JSON.stringify(body,(k,v)=>k==='url'&&typeof v==='string'&&v.startsWith('data:')?'[图片内容，预览省略]':v))});let rawResponse:unknown;try{for (let attempt = 0; attempt < 3; attempt++) {
+export async function callAI<T>(settings: Settings, key: string, schema: z.ZodType<T>, prompt: string, signal: AbortSignal, onRetry: (s: string) => void = () => { },systemPrompt=guard,images:string[]=[],maxOutputTokens=16384,outputSchema:z.ZodType=schema): Promise<T> { if (!key.trim()) throw new ServiceStopError('请先在设置中保存API Key');
+    settings = { ...settings, ...connectionSettings(settings) };
+    if (signal.aborted) throw Error('已取消');
+    const composed = promptBook.compose(prompt, systemPrompt);
+    const jsonSchema = z.toJSONSchema(outputSchema); delete (jsonSchema as any).$schema;
+    const { url, headers, body } = providerRequest(settings, key, jsonSchema, composed.prompt, composed.system, images, maxOutputTokens);
+    promptBook.record(composed.id, { assembledAt: new Date().toISOString(), body: requestPreview(body) });
+    let rawResponse:unknown;try{for (let attempt = 0; attempt < 3; attempt++) {
+    if (signal.aborted) throw Error('已取消');
     const timeout = AbortSignal.timeout(120000);
     let r: Response;
     try {
-        r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.any([signal, timeout]) });
+        r = await fetch(url, { method: 'POST', headers, redirect: 'error', body: JSON.stringify(body), signal: AbortSignal.any([signal, timeout]) });
     }
     catch (e) {
         if (signal.aborted)
             throw Error('已取消');
-        throw new ServiceStopError('请求中断或超时，后续任务已暂停，请手动继续；服务端可能已计费。' + String(e));
+        throw new ServiceStopError('请求中断、超时或接口跳转被阻止，后续任务已暂停；请检查API基础地址后手动继续，服务端可能已计费。' + String(e));
     }
     if (!r.ok) {
         if ((r.status === 429 || r.status >= 500) && attempt < 2) {
@@ -41,22 +49,17 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
             const code=String(detail?.error?.code||detail?.error?.type||'');
             if(/^(context_length_exceeded|max_tokens_exceeded|too_many_tokens|request_too_large)$/.test(code)&&detail?.error?.param!=='model')throw new GenerationContentError(`本项材料请求被接口拒绝（${r.status}），请检查材料长度或输出要求；其他任务继续。`);
         }
-        throw new ServiceStopError(`API请求失败（${r.status}）。请检查凭据、余额、模型与服务地址；未执行项可稍后继续。`);
+        throw new ServiceStopError(`API请求失败（${r.status}）。请检查凭据、余额、模型与服务地址；${images.length ? '本次包含图片，请确认当前模型及接口支持图片输入；' : ''}未执行项可稍后继续。`);
     }
-    const data: any = await r.json();rawResponse=data;
-    let content: string;
-    if (open) {
-        if (data.status === 'incomplete')
-            throw new GenerationContentError('AI输出被截断，请缩小题组后重试');
-        const parts = data.output?.flatMap((x: any) => x.content || []) || [];
-        if (parts.some((x: any) => x.type === 'refusal'))
-            throw new GenerationContentError('模型拒绝生成本次内容');
-        content = parts.filter((x: any) => x.type === 'output_text').map((x: any) => x.text).join('');
+    let data: unknown;
+    try { data = await r.json(); } catch (error) {
+        if (signal.aborted) throw Error('已取消');
+        if (error instanceof SyntaxError || timeout.aborted) throw new ServiceStopError('API响应无法读取或不是有效JSON，后续任务已暂停，请检查服务接口');
+        throw error;
     }
-    else {
-        if (data.choices?.[0]?.finish_reason !== 'stop')throw new GenerationContentError(data.choices?.[0]?.finish_reason==='length'?'生成内容达到输出长度上限，请缩小题组后重试':'AI输出未完整结束，请重试');
-        content = data.choices?.[0]?.message?.content || '';
-    }
+    rawResponse = data;
+    if (signal.aborted) throw Error('已取消');
+    const content = providerText(settings.provider, data);
     if (!content.trim())
         throw new GenerationContentError('AI返回空内容，本题组未生成');
     let value: unknown;
@@ -67,7 +70,7 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
     catch {
         throw new GenerationContentError('AI返回无效JSON，本题组未保存');
     }
-    const result = schema.safeParse(value);
+    const result = schema.safeParse(settings.provider === 'openai' ? restoreOptionalFields(value, jsonSchema) : value);
     if (!result.success)
         throw new GenerationContentError('AI内容结构不符合要求：' + result.error.issues.slice(0, 3).map(x => x.path.join('.') + ':' + x.message).join(';'));
     return result.data;
