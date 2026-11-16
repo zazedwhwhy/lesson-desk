@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "authorship": "All diagrams, labels, data and question associations are human-defined synthetic fixtures.",
+  "coordinateRules": {
+    "pdf": "Bounds are [left, top, right, bottom] in points, top-left origin, 72 pt/in; pages start at 1.",
+    "normalized": "x/y/width/height within [0,1], top-left origin; multiply by rendered page size.",
+    "docx": "Bounds refer to the original embedded PNG. Word rendered page coordinates are intentionally unknown.",
+    "cropContract": "Include the complete framed figure, its caption, arrows, labels, axes and ticks; exclude question stem and page heading."
+  },
+  "pdf": {
+    "file": "chemistry-diagrams-two-pages.pdf",
+    "pageCount": 2,
+    "pageSizePt": [
+      612,
+      792
+    ],
+    "figures": [
+      {
+        "id": "pdf-q11-flow",
+        "questionNumber": "11",
+        "page": 1,
+        "kind": "flow",
+        "continuation": false,
+        "boundsPtTopLeft": [
+          54,
+          144,
+          558,
+          314
+        ],
+        "boundsPdfBottomLeft": [
+          54,
+          478,
+          558,
+          648
+        ],
+        "boundsNormalized": {
+          "x": 0.08823529411764706,
+          "y": 0.18181818181818182,
+          "width": 0.8235294117647058,
+          "height": 0.21464646464646464
+        },
+        "expectedCropPixels144Dpi": [
+          1008,
+          340
+        ],
+        "sourceRepresentation": "vector"
+      },
+      {
+        "id": "pdf-q12-apparatus",
+        "questionNumber": "12",
+        "page": 1,
+        "kind": "apparatus",
+        "continuation": false,
+        "boundsPtTopLeft": [
+          54,
+          410,
+          558,
+          660
+        ],
+        "boundsPdfBottomLeft": [
+          54,
+          132,
+          558,
+          382
+        ],
+        "boundsNormalized": {
+          "x": 0.08823529411764706,
+          "y": 0.5176767676767676,
+          "width": 0.8235294117647058,
+          "height": 0.31565656565656564
+        },
+        "expectedCropPixels144Dpi": [
+          1008,
+          500
+        ],
+        "sourceRepresentation": "raster"
+      },
+      {
+        "id": "pdf-q12-continuation",
+        "questionNumber": "12",
+        "page": 2,
+        "kind": "apparatus_detail",
+        "continuation": true,
+        "boundsPtTopLeft": [
+          54,
+          145,
+          558,
+          340
+        ],
+        "boundsPdfBottomLeft": [
+          54,
+          452,
+          558,
+          647
+        ],
+        "boundsNormalized": {
+          "x": 0.08823529411764706,
+          "y": 0.1830808080808081,
+          "width": 0.8235294117647058,
+          "height": 0.24621212121212122
+        },
+        "expectedCropPixels144Dpi": [
+          1008,
+          390
+        ],
+        "sourceRepresentation": "vector"
+      },
+      {
+        "id": "pdf-q13-chart",
+        "questionNumber": "13",
+        "page": 2,
+        "kind": "statistics",
+        "continuation": false,
+        "boundsPtTopLeft": [
+          54,
+          425,
+          558,
+          690
+        ],
+        "boundsPdfBottomLeft": [
+          54,
+          102,
+          558,
+          367
+        ],
+        "boundsNormalized": {
+          "x": 0.08823529411764706,
+          "y": 0.5366161616161617,
+          "width": 0.8235294117647058,
+          "height": 0.3345959595959596
+        },
+        "expectedCropPixels144Dpi": [
+          1008,
+          530
+        ],
+        "sourceRepresentation": "vector"
+      }
+    ],
+    "questionFigureCounts": {
+      "11": 1,
+      "12": 2,
+      "13": 1
+    },
+    "crossPageGroup": {
+      "questionNumber": "12",
+      "figures": [
+        "pdf-q12-apparatus",
+        "pdf-q12-continuation"
+      ]
+    }
+  },
+  "docx": {
+    "file": "chemistry-two-images.docx",
+    "embeddedImageCount": 2,
+    "intendedPageCount": 2,
+    "actualWordRenderedPageCount": null,
+    "figures": [
+      {
+        "id": "docx-q21",
+        "questionNumber": "21",
+        "intendedPage": 1,
+        "relationshipId": "rId9",
+        "zipPart": "word/media/image1.png",
+        "sourcePng": "images/flow-q21.png",
+        "intrinsicPixels": [
+          1008,
+          340
+        ],
+        "boundsPixelsTopLeft": [
+          0,
+          0,
+          1008,
+          340
+        ],
+        "boundsNormalized": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "wordRenderedPageBounds": null,
+        "sha256": "f69753225555134c9469e1eb33c957f5bc47f6b2bd30ef93866221dc6bdcc975"
+      },
+      {
+        "id": "docx-q22",
+        "questionNumber": "22",
+        "intendedPage": 2,
+        "relationshipId": "rId10",
+        "zipPart": "word/media/image2.png",
+        "sourcePng": "images/chart-q22.png",
+        "intrinsicPixels": [
+          1008,
+          530
+        ],
+        "boundsPixelsTopLeft": [
+          0,
+          0,
+          1008,
+          530
+        ],
+        "boundsNormalized": {
+          "x": 0,
+          "y": 0,
+          "width": 1,
+          "height": 1
+        },
+        "wordRenderedPageBounds": null,
+        "sha256": "45b4bd746a4e56a0ffc9122219951c18ad29ff557467140c3f934aa80cd5eaae"
+      }
+    ]
+  },
+  "chartData": {
+    "timeSeconds": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60
+    ],
+    "oxygenVolumeMl": [
+      0,
+      12,
+      21,
+      27,
+      30,
+      32,
+      33
+    ],
+    "xTicks": [
+      0,
+      10,
+      20,
+      30,
+      40,
+      50,
+      60
+    ],
+    "yTicks": [
+      0,
+      10,
+      20,
+      30,
+      40
+    ],
+    "expectedAt30s": {
+      "value": 27,
+      "unit": "mL"
+    }
+  },
+  "checks": {
+    "sourceDiagramPngsExist": true,
+    "docxImagesByteIdenticalToSources": true,
+    "docxStructuralImageCount": 2,
+    "pdfRenderedVisualCheck": "passed_manual_png_inspection",
+    "docxActualRender": "unverified - bundled LibreOffice not available on this Windows runtime"
+  },
+  "artifactHashes": {
+    "chemistry-diagrams-two-pages.pdf": "d424701e44b6a4fde5700a876ae66fceed2b534e35d35048a7739b66e56783f9",
+    "chemistry-two-images.docx": "3f7dd15b3dcf7f9f408cc42ccc96de89990aa776c2b8c8c82cbf386b06e1ca05"
+  }
+}

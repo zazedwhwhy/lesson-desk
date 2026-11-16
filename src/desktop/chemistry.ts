@@ -1,3 +1,4 @@
+import {questionFigures,completeFigureLinks} from '../core/chemistry-figure-links';
 import {taskPool,serialSnapshots} from '../core/task-pool';
 import {organizeWithCoverage,type OrganizationOptions} from './organization';
 import type {OrganizationTarget} from '../core/organization-coverage';
@@ -12,14 +13,14 @@ import {validChemPractice,chemQuestionSchema,chemResultSchema,chemChecks,chemFin
 import {uid,type Project,type Settings} from '../core/model';
 
 import {chemistrySystem as system,chemInstructions,chemistryOrganizeInstruction} from '../core/chemistry-prompts';
-const organized=z.object({questions:z.array(z.object({number:z.string().min(1),kind:chemQuestionSchema.shape.kind,stem:z.string().min(1),options:z.array(z.string()),answer:z.string(),sourceId:z.string(),pages:z.array(z.number().int().positive())})).min(1)});
+const organized=z.object({questions:z.array(z.object({number:z.string().min(1),kind:chemQuestionSchema.shape.kind,stem:z.string().min(1),options:z.array(z.string()),answer:z.string(),sourceId:z.string(),pages:z.array(z.number().int().positive()),figureIds:z.array(z.string()).optional()})).min(1)});
 export async function organizeChemistry(p:Project,s:Settings,key:string,signal:AbortSignal,options:OrganizationOptions={}){
  if(p.subject!=='chemistry'||!p.chemistry)throw Error('请选择化学课件');
  assertOcrReviewed(p.sources);
- return organizeWithCoverage(p,signal,(part,targets)=>organizeChemistryPart(part,s,key,signal,targets),options);
+ return completeFigureLinks(await organizeWithCoverage(p,signal,(part,targets)=>organizeChemistryPart(part,s,key,signal,targets),options));
 }
 async function organizeChemistryPart(p:Project,s:Settings,key:string,signal:AbortSignal,targets?:OrganizationTarget[]){
- const out=await callAI(s,key,organized,chemistryOrganizeInstruction+'\n输入材料：'+JSON.stringify({scope:targets?{targets,instruction:'仅整理这些来源题号，保留全部小问和跨页续文；答案来源中的其他题号不属于本次范围'}:undefined,sources:p.sources.map(({id,name,role,blocks})=>({id,name,role,blocks}))}),signal,undefined,system,[],32768);
+ const out=await callAI(s,key,organized,chemistryOrganizeInstruction+'\n输入材料：'+JSON.stringify({scope:targets?{targets,instruction:'仅整理这些来源题号，保留全部小问和跨页续文；答案来源中的其他题号不属于本次范围'}:undefined,sources:p.sources.map(({id,name,role,blocks,figures})=>({id,name,role,blocks,figures:figures?.map(({data,...f})=>f)}))}),signal,undefined,system,[],32768);
  try{if(signal.aborted)throw Error('已取消整理，原题目未替换');
  const numbers=new Set<string>();
  for(const q of out.questions){
@@ -30,13 +31,19 @@ async function organizeChemistryPart(p:Project,s:Settings,key:string,signal:Abor
  }
  const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; protectChemistry(p,out,sourceFidelityIssues);
  const next=structuredClone(p); next.sourceFidelityIssues=sourceFidelityIssues;if(next.chemistry!.questions.length)next.chemistry!.history.push({at:new Date().toISOString(),questions:next.chemistry!.questions});
- next.chemistry!.questions=out.questions.map(q=>chemQuestionSchema.parse({...q,id:uid()}));next.chemistry!.tasks=[];
+ next.chemistry!.questions=out.questions.map(q=>{
+  const source=p.sources.find(s=>s.id===q.sourceId)!,images=questionFigures(source,q.number,q.figureIds);
+  // Explicit organizer links supersede the detector's preliminary question numbers.
+  const dismissedFigureIds=q.figureIds?questionFigures(source,q.number).filter(f=>!q.figureIds!.includes(f.id)).map(f=>f.id):undefined;
+  const stem=images.length?q.stem.replace(/\[原文含图片，请对照原文件补充必要文字\]/g,'').replace(/\n{3,}/g,'\n\n').trim():q.stem;
+  return chemQuestionSchema.parse({...q,id:uid(),stem,images,dismissedFigureIds,...(images.length?{imageMode:'auto'}:{})});
+ });next.chemistry!.tasks=[];
  return next;
  }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});}
 }
 export type ChemCaller=(q:ChemQuestion,module:ChemModule,signal:AbortSignal,status?:(message:string)=>void)=>Promise<ChemResult>;
 export function chemistryCaller(s:Settings,key:string):ChemCaller{return async(q,module,signal,status)=>{
- const images=q.imageMode==='vision'?q.images.map(i=>i.data):[];
+ const images=q.imageMode!=='description'?q.images.map(i=>i.data):[];
  const prompt=chemInstructions[module]+'\n输入材料：'+JSON.stringify({stage:q.stage,number:q.number,kind:q.kind,stem:q.stem,options:q.options,answer:q.answer,figures:q.images.map(i=>({name:i.name,page:i.page,description:i.description})),imageMode:q.imageMode});
  if(module==='practice'){
   const text=chemResultSchema.shape.blocks.element.shape.text;

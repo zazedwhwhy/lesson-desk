@@ -8,11 +8,11 @@ export const chemNames:Record<ChemModule,string>={analysis:'逐题讲评',knowle
 export const chemKinds=['choice','principle','calculation','experiment','process','organic'] as const;
 export const chemKindNames:Record<typeof chemKinds[number],string>={choice:'选择与判断',principle:'化学原理',calculation:'定量计算',experiment:'实验探究',process:'工艺流程',organic:'有机推断'};
 const text=z.string().trim().min(1);
-export const chemImageSchema=z.object({id:text,name:text,data:z.string().max(16*1024*1024).regex(/^data:image\/(png|jpeg);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),sourceId:z.string().optional(),page:z.number().int().positive().optional(),description:z.string().default(''),confirmed:z.boolean().default(false)});
+export const chemImageSchema=z.object({id:text,name:text,data:z.string().max(16*1024*1024).regex(/^data:image\/(png|jpeg);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),sourceId:z.string().optional(),page:z.number().int().positive().optional(),description:z.string().default(''),confirmed:z.boolean().default(false),automatic:z.boolean().optional()});
 export const chemResultSchema=z.object({status:z.enum(['ok','needs_review','insufficient_material']),notices:z.array(text),blocks:z.array(z.object({label:text,text})).min(1)});
 export function validChemPractice(result:z.infer<typeof chemResultSchema>){return JSON.stringify(result.blocks.map(b=>b.label))===JSON.stringify(['题目','答案','解析与迁移']);}
 export const chemVersionSchema=z.object({id:text,module:z.enum(chemModules),createdAt:text,origin:z.enum(['ai','teacher']),fingerprint:text,confirmed:z.boolean(),result:chemResultSchema}).superRefine((v,ctx)=>{if(v.module==='practice'&&v.result.status==='ok'&&!validChemPractice(v.result))ctx.addIssue({code:'custom',message:'演练必须分别包含题目、答案、解析与迁移三个内容块；请重新生成结构不完整的演练'});});
-export const chemQuestionSchema=z.object({id:text,number:text,stage:z.enum(['junior','senior']).default('senior'),kind:z.enum(chemKinds).default('principle'),stem:z.string().default(''),options:z.array(z.string()).default([]),answer:z.string().default(''),sourceId:z.string().default(''),pages:z.array(z.number().int().positive()).default([]),images:z.array(chemImageSchema).max(12).default([]),imageMode:z.enum(['description','vision']).default('description'),confirmed:z.boolean().default(false),excluded:z.boolean().default(false),versions:z.array(chemVersionSchema).default([])});
+export const chemQuestionSchema=z.object({id:text,number:text,stage:z.enum(['junior','senior']).default('senior'),kind:z.enum(chemKinds).default('principle'),stem:z.string().default(''),options:z.array(z.string()).default([]),answer:z.string().default(''),sourceId:z.string().default(''),pages:z.array(z.number().int().positive()).default([]),images:z.array(chemImageSchema).max(12).default([]),dismissedFigureIds:z.array(z.string()).optional(),imageMode:z.enum(['auto','description','vision']).default('description'),confirmed:z.boolean().default(false),excluded:z.boolean().default(false),versions:z.array(chemVersionSchema).default([])});
 const task=z.object({...taskTiming,id:text,questionId:text,module:z.enum(chemModules),fingerprint:text,state:z.enum(['pending','running','complete','failed']),error:z.string(),attempts:z.number().int().nonnegative()});
 export const chemistryReviewSchema=z.object({coverage:z.enum(['complete','partial']),checkedQuestionIds:z.array(z.string()),limitations:z.array(z.string()),findings:z.array(z.object({questionId:z.string().min(1),message:z.string().min(1)}))});
 export const chemistrySchema=z.object({review:z.object({snapshot:z.string(),result:chemistryReviewSchema}).optional(),version:z.literal(1).default(1),questions:z.array(chemQuestionSchema).default([]),history:z.array(z.object({at:text,questions:z.array(chemQuestionSchema)})).default([]),tasks:z.array(task).default([])}).superRefine((d,ctx)=>{
@@ -42,7 +42,7 @@ export function chemChecks(q:ChemQuestion){
  if(q.excluded)issues.push('题目已排除');
  if(!q.stem.trim())issues.push('题干为空');
  if(!q.confirmed)issues.push('题面尚未核对');
- if(q.images.some(i=>!i.confirmed))issues.push('图片尚未核对');
+ if(q.images.some(i=>!i.automatic&&!i.confirmed))issues.push('图片尚未核对');
  if(q.imageMode==='description'&&q.images.some(i=>!i.description.trim()))issues.push('文字模式需要填写每张图片的图示说明');
  return issues;
 }

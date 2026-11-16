@@ -7,7 +7,7 @@ import { invoke } from './api';
 import { loadOcrPagePreview } from './ocr-page-preview';
 import './ocr-review.css';
 
-export function OcrReview({ project: p, onProject, disabled = false }: { project: Project; onProject: (p: Project) => void; disabled?: boolean }) {
+export function OcrReview({ project: p, onProject, onSavingChange, disabled = false }: { project: Project; onProject: (p: Project) => void; disabled?: boolean; onSavingChange?: (saving:boolean)=>void }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [image, setImage] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<string[]>([]);
@@ -44,7 +44,7 @@ export function OcrReview({ project: p, onProject, disabled = false }: { project
 
   async function save(request: OcrReviewRequest) {
     if (disabled || saveLock.current) return;
-    saveLock.current = true; setSaving(true); setMessage('');
+    saveLock.current = true; setSaving(true); onSavingChange?.(true); setMessage('');
     setActionKeys((request.kind === 'verify' ? request.pages : [request.page]).map(v => ocrPageKey(v.sourceId, v.page)));
     try {
       const saved: Project = await invoke('save-ocr-review', p.id, request);
@@ -65,7 +65,7 @@ export function OcrReview({ project: p, onProject, disabled = false }: { project
         setMessage('本页校订已保存，原始转录仍保留；请核对后确认通过。');
       }
     } catch (error) { if (mounted.current) setMessage(friendlyError(error)); }
-    finally { saveLock.current = false; if (mounted.current) setSaving(false); }
+    finally { saveLock.current = false; onSavingChange?.(false); if (mounted.current) setSaving(false); }
   }
 
   if (!pages.length) return message ? <section className="panel" aria-label="OCR原页核对"><h2>OCR 原页核对完成</h2><p role="status">全部页面已核对，可继续整理试卷。</p></section> : null;

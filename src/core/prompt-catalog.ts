@@ -1,3 +1,4 @@
+import {chemistryFigureInstruction,chemistryFigureSystem} from './chemistry-figures';
 import {chemistrySystem,chemistryReviewInstruction,chemistryOrganizeInstruction,chemInstructions} from './chemistry-prompts';
 import {chemNames,type ChemModule} from './chemistry';
 import {chineseSystem,chineseOrganizeInstruction,chineseInstructions} from './chinese-prompts';
@@ -8,6 +9,7 @@ import {specialKinds,specialNames,specialPrompts,specialSystem} from './special'
 import {apiSystem,analysisInstruction,organizeInstruction,translationInstruction,blueprintInstruction,practiceInstruction,practiceSystem,proofreadInstruction,proofreadSystem,correctionInstruction,correctionSystem,ocrInstruction,ocrSystem,reviewInstruction,reviewSystem} from './request-instructions';
 export type PromptTemplate={id:string;title:string;instruction:string;system:string};
 export function promptCatalog():PromptTemplate[]{return [
+ {id:'chemistry-figures',title:'化学 · 自动识别题图',instruction:chemistryFigureInstruction,system:chemistryFigureSystem},
  {id:'chemistry-review',title:'化学 · 对照原卷校对',instruction:chemistryReviewInstruction,system:chemistrySystem},
  {id:'chemistry-organize',title:'化学 · 整理试卷',instruction:chemistryOrganizeInstruction,system:chemistrySystem},
  ...Object.entries(chemInstructions).map(([id,instruction])=>({id:'chemistry-'+id,title:'化学 · '+chemNames[id as ChemModule],instruction,system:chemistrySystem})),

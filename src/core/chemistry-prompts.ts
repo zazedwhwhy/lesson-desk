@@ -7,6 +7,6 @@ export const chemInstructions:Record<ChemModule,string>={
  experiment:'实验剖析：目的与反应原理→各装置/试剂作用→操作顺序及原因→预期现象→证据支持的结论及局限→误差方向与理由→改进和必要安全条件。工艺流程逐环节分析物质去向。图不清或本题不涉及实验/流程时说明，不能凭空虚构实验。',
  practice:'考点演练：只生成一道有针对性的变式题。按 schema 输出 question（题目）、answer（独立答案）、analysis（解析与迁移），另附 status 和 notices；软件负责将三字段排成三个内容块，不返回 blocks。question 中不泄露答案。给足独立作答条件，不引用不存在的附图。新题独立检查答案唯一性：若一种现象可能由多种物质造成，明确待选物质范围、排除干扰条件或允许多解；不能把原题固定答案当成新题已知条件。注明 AI 新编。'
 };
-export const chemistryOrganizeInstruction='整理化学试卷，逐题完整保留条件、选项和题号。sourceId 必须来自试卷材料；pages 是原文件页码。未知答案留空，不作答。整理阶段不解题、不配平、不校订；stem和options逐字保留该题完整原文及所有追问，不以图略解释改写原文字句。answer只摘录答案来源的连续原文，不概括或重新计算参考解析，不能改写原反应式。图片另行核对，所有整理结果需教师对照原页。';
+export const chemistryOrganizeInstruction='整理化学试卷，逐题完整保留条件、选项和题号。sourceId 必须来自试卷材料；pages 只填写来源 blocks 中实际提供的页码；Word等来源未给页码时返回[]，不能按段落、图片序号或版式猜页码。未知答案留空，不作答。整理阶段不解题、不配平、不校订；stem和options逐字保留该题完整原文及所有追问，不以图略解释改写原文字句。answer只摘录答案来源的连续原文，不概括或重新计算参考解析，不能改写原反应式。figures为已识别原图的索引。每题figureIds填写属于本题的同源图片id，包括跨页续图；共享图可以用于多题，不能选择其他来源或不相关题目的图，不凭空编造id。原图由软件自动显示，不用重绘或把图像转成文字替代；公式沿用LaTeX。所有整理结果随题面一起核对。';
 
 export const chemistryReviewInstruction='逐题对照化学原卷和参考答案，检查题干、小问、选项、公式的上下标/电荷/系数、单位、题图条件和答案关联。只报告具体问题，不重新解题、不改参考答案、不配平原题错式。checkedQuestionIds只填写本批实际检查过的题目id；纯text来源且没有题图时，以提供的原文为完整校对来源，不凭空要求PDF版面或原图，也不因常识推测存在缺图；实际存在但不能确认的图示、结构式和文字提取顺序必须列入limitations，coverage=partial，不假报通过。findings给questionId和具体message。';
