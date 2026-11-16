@@ -1,6 +1,6 @@
 import {runParallelGeneration} from './parallel-generation';
 import { applyOcrReview, ocrReviewRequestSchema } from '../core/ocr-review';
-import {queueManualOcr} from '../core/manual-ocr';
+import {queueManualOcr,queueChemistryPdf} from '../core/manual-ocr';
 import {refreshChemistryFidelity} from '../core/chemistry-review';
 import {reviewChemistry} from './chemistry-review';
 import { connectionSettings } from '../core/ai-settings';
@@ -121,11 +121,12 @@ app.whenReady().then(async () => {
         throw Error('材料类型无效'); const d = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], filters: [{ name: 'PDF或Word文档', extensions: ['pdf', 'docx'] }] }); if (d.canceled)
         return null; const p = await store.load(id); for (const file of d.filePaths) {
         const { source, bytes } = await readDocument(file, role);
+        if(p.subject==='chemistry')queueChemistryPdf(source);
         source.asset = `sources/${source.id}${path.extname(file).toLowerCase()}`;
         await store.asset(id, source.asset, bytes);
         p.sources.push(source);
-    } return store.save(p); });
-    handle('ocr',async(id:string,manual?:unknown)=>{if(running.has(id))throw Error('任务正在处理');const p=await store.load(id);const requested=manual===undefined?undefined:queueManualOcr(p.sources,manual);const targets=requested?[requested.source]:p.sources.filter(s=>s.ocrPages?.length);if(!targets.length)throw Error('没有待识别扫描页');const {s,key}=await credentials();const c=new AbortController();running.set(id,c);try{for(const source of targets){if(!source.asset)throw Error('原PDF缺失，请重新上传');validateBundlePath(source.asset);await recognizeScan(path.join(store.dir(id),source.asset),source,s,key,c.signal,async(_,message)=>{p.updatedAt=new Date().toISOString();await store.save(p);progress(p,message);},requested?.pages);}return await store.save(p);}finally{running.delete(id);}});
+    } const saved=await store.save(p);progress(saved,p.subject==='chemistry'&&p.sources.some(s=>s.ocrPages?.length)?'上传完成，请点击「AI识别」，核对后再整理试卷。':'材料上传完成，请核对原材料后继续。');return saved; });
+    handle('ocr',async(id:string,manual?:unknown)=>{if(running.has(id))throw Error('任务正在处理');const p=await store.load(id);if(manual===undefined&&p.subject==='chemistry'&&!p.sources.some(s=>s.ocrPages?.length)){for(const source of p.sources.filter(s=>s.kind==='pdf'&&s.asset))queueChemistryPdf(source);}const requested=manual===undefined?undefined:queueManualOcr(p.sources,manual);const targets=requested?[requested.source]:p.sources.filter(s=>s.ocrPages?.length);if(!targets.length)throw Error('没有待识别扫描页');const {s,key}=await credentials();const c=new AbortController();running.set(id,c);try{for(const source of targets){if(!source.asset)throw Error('原PDF缺失，请重新上传');validateBundlePath(source.asset);await recognizeScan(path.join(store.dir(id),source.asset),source,s,key,c.signal,async(_,message)=>{p.updatedAt=new Date().toISOString();await store.save(p);progress(p,message);},requested?.pages);}return await store.save(p);}finally{running.delete(id);}});
     handle('organize', async (id: string,recover=false) => { if (running.has(id))
         throw Error('任务已在运行'); const p = await store.load(id); if (!p.sources.length)
         throw Error('请先上传试卷和答案，再点击整理试卷'); if(p.sources.some(s=>s.ocrPages?.length))throw Error('扫描页尚未识别，请先点击识别扫描页'); const { s, key } = await credentials(); const controller = new AbortController(); running.set(id, controller); try {

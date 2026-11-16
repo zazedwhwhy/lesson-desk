@@ -2,6 +2,12 @@ import {z} from 'zod';
 import {uid,type Source} from './model';
 export const manualOcrSchema=z.object({sourceId:z.string().min(1),pages:z.array(z.number().int().min(1).max(100)).min(1).max(100)});
 export function pdfPageCount(source:Source){return source.pageCount||Math.max(0,...source.blocks.map(b=>b.page||0),...(source.ocrPages||[]),...(source.ocrReviewPages||[]),...(source.ocrVerifiedPages||[]),...(source.ocrTranscriptions||[]).map(p=>p.page),...(source.ocrCorrections||[]).map(p=>p.page));}
+/** Chemistry PDFs always enter the explicit recognition step after upload,
+ * including PDFs with a text layer. Keep that text until each OCR page saves. */
+export function queueChemistryPdf(source:Source){
+ if(source.kind!=='pdf')return;
+ source.ocrPages=parseOcrPages('',pdfPageCount(source));
+}
 export function parseOcrPages(value:string,total:number){
  if(!Number.isInteger(total)||total<1||total>100)throw Error('无法确定PDF页数，请重新上传原PDF');
  if(!value.trim())return Array.from({length:total},(_,i)=>i+1);
