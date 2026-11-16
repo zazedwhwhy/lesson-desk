@@ -7,7 +7,7 @@ import {z} from 'zod';
 const settings={provider:'deepseek' as const,model:'mock',baseUrl:'https://api.deepseek.com'};
 const response=(content:string)=>Response.json({choices:[{finish_reason:'stop',message:{content}}]});
 afterEach(()=>vi.unstubAllGlobals());
-function fixture(){const p=demoProject();p.questions=[p.questions[0],{...structuredClone(p.questions[0]),id:'q22',number:'22'}];for(const q of p.questions){q.versions=[];delete q.activeVersion;}return planGeneration(p,p.questions.map(q=>q.id),'analysis');}
+function fixture(){const p=demoProject();p.questions=[p.questions[0],{...structuredClone(p.questions[0]),id:'q22',number:'22'}];for(const q of p.questions){q.answer='B';q.versions=[];delete q.activeVersion;}return planGeneration(p,p.questions.map(q=>q.id),'analysis');}
 const row=(id:string)=>({questionId:id,answer:'B',analysis:'依据所提供的原文与参考答案分析。',evidenceIds:['C1']});
 it('批量回复漏证据字段时保存合格题，只修正缺字段题；解析不再依赖练习蓝图',async()=>{
  const p=fixture(),[q1,q2]=p.questions;const broken:any=row(q1.id);delete broken.evidenceIds;
@@ -31,6 +31,6 @@ it('取消单题修正仍保留同批已合格题，不再发后续请求',async
  const result=await runGeneration(p,c.signal,generationExecutor(settings,'mock',c.signal,()=>{}),async()=>{});expect(result.job.state).toBe('cancelled');expect(result.questions[1].versions).toHaveLength(1);expect(result.job.done).toEqual([q2.id]);expect(result.job.tasks![0].state).toBe('pending');expect(fetch).toHaveBeenCalledTimes(2);
 });
 it('单题持续无效JSON最多自动修正一次，不能无限循环',async()=>{
- const p=fixture(),fetch=vi.fn().mockResolvedValue(response('{broken'));vi.stubGlobal('fetch',fetch);const signal=new AbortController().signal;
+ const p=fixture(),fetch=vi.fn(async()=>response('{broken'));vi.stubGlobal('fetch',fetch);const signal=new AbortController().signal;
  const result=await runGeneration(p,signal,generationExecutor(settings,'mock',signal,()=>{}),async()=>{});expect(result.job.state).toBe('failed');expect(result.questions.every(q=>q.versions.length===0)).toBe(true);expect(fetch).toHaveBeenCalledTimes(3);
 });

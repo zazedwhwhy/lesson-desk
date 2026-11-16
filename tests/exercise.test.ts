@@ -16,3 +16,21 @@ it('拒绝真实返回中把完形空位放到题干末尾、材料却无空位�
  expect(()=>validateExercise(e,'cloze')).toThrow('空位');
  expect(()=>validateExercise({...e,material:e.material.replace('ground','[1]'),stem:'Choose the best word for [1].'},'cloze')).toThrow('空位');
 });
+
+it('写作范文字数先本地核对，给定段首句计入且忽略段落标签',()=>{
+ const e={...demoExercise(),kind:'writing',stem:'Write an invitation in 20–25 words.',options:[],answer:'We invite you to visit our new school garden and share your ideas with the students next Friday after lunch.'};
+ expect(validateExercise(e,'writing')).toBeTruthy();
+ const taskInMaterial={...e,material:e.material+' Write 20-25 words.',stem:'Complete the writing task.',answer:e.answer+' '+ 'additional '.repeat(100)};
+ expect(()=>validateExercise(taskInMaterial,'writing')).toThrow('参考范文实际');
+ expect(()=>validateExercise({...e,answer:e.answer+' Please bring your own camera and a notebook.'},'writing')).toThrow('参考范文实际');
+ const continuation={...e,kind:'continuation',material:(e.material+' ').repeat(4),stem:'Write 20-25 words. Paragraph 1: We invite you. Paragraph 2: Please come.',answer:'Paragraph 1: '+e.answer};
+ expect(validateExercise(continuation,'continuation')).toBeTruthy();
+});
+
+it('生成结果的换行转义与重复选项表统一排版，不删正文中的单个选项词',()=>{
+ const e=demoExercise(),material=e.material+'\n\n'+e.options.join('\n');
+ const out=validateExercise({...e,material:material.replace(/\n/g,'\\n')},'reading');
+ expect(out.material).toBe(e.material);expect(out.options).toEqual(e.options);
+ const source=e.material+'\nThe teacher wrote '+e.options[0]+' on the board.';
+ expect(validateExercise({...e,material:source},'reading').material).toBe(source);
+});

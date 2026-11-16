@@ -2,6 +2,12 @@ import type {Project} from '../core/model';
 import {applicableChineseModules, type ChineseData, type ChineseModule} from '../core/chinese';
 
 type Task = {state: 'pending'|'running'|'complete'|'failed'};
+export function chineseReviewScope(d:ChineseData,selected:string[]){
+ const scoped=d.groups.flatMap(g=>g.questions).filter(q=>!selected.length||selected.includes(q.id));
+ const questionIds=scoped.filter(q=>q.confirmed&&!q.excluded).map(q=>q.id);
+ const groupIds=d.groups.filter(g=>g.questions.some(q=>questionIds.includes(q.id))||!g.questions.length&&!selected.length).map(g=>g.id);
+ return {questionIds,groupIds,unconfirmed:scoped.filter(q=>!q.confirmed&&!q.excluded).length,excluded:scoped.filter(q=>q.excluded).length};
+}
 export function preparationProgress(tasks: readonly Task[], job?: Pick<Project['job'],'state'|'stopReason'>, active=false, cancelling=false) {
   const complete=tasks.filter(t=>t.state==='complete').length;
   const failed=tasks.filter(t=>t.state==='failed').length;

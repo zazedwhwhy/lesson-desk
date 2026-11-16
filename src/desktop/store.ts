@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import {atomicRename} from './atomic-rename';
 import path from 'node:path';
 import { zipSync, unzipSync, strToU8, strFromU8 } from 'fflate';
 import { projectSchema, type Project } from '../core/model';
@@ -12,8 +13,8 @@ export class Store {
         if(!entry.isDirectory()||entry.isSymbolicLink())throw Error('课件目录无效，无法删除');
         await trashItem(directory);
     }
-    async save(p: Project) { p = projectSchema.parse(p); await fs.mkdir(this.dir(p.id), { recursive: true }); const file = path.join(this.dir(p.id), 'project.json'); const tmp = file + '.' + crypto.randomUUID() + '.tmp'; await fs.writeFile(tmp, JSON.stringify(p, null, 2)); await fs.rename(tmp, file); return p; }
-    async load(id: string,recover=true) { const p = projectSchema.parse(JSON.parse(await fs.readFile(path.join(this.dir(id), 'project.json'), 'utf8'))); if(recover&&p.chinese?.tasks.some(t=>t.state==='running')){for(const t of p.chinese.tasks)if(t.state==='running'){t.state='pending';t.error='上次生成中断，可继续';}await this.save(p);} if (recover&&p.job.state === 'running') {
+    async save(p: Project) { p = projectSchema.parse(p); await fs.mkdir(this.dir(p.id), { recursive: true }); const file = path.join(this.dir(p.id), 'project.json'); const tmp = file + '.' + crypto.randomUUID() + '.tmp'; await fs.writeFile(tmp, JSON.stringify(p, null, 2)); await atomicRename(tmp, file); return p; }
+    async load(id: string,recover=true) { const p = projectSchema.parse(JSON.parse(await fs.readFile(path.join(this.dir(id), 'project.json'), 'utf8'))); if(recover&&p.chemistry?.tasks.some(t=>t.state==='running')){for(const t of p.chemistry.tasks)if(t.state==='running'){t.state='pending';t.error='上次生成中断，可重试未完成项';}await this.save(p);} if(recover&&p.chinese?.tasks.some(t=>t.state==='running')){for(const t of p.chinese.tasks)if(t.state==='running'){t.state='pending';t.error='上次生成中断，可继续';}await this.save(p);} if (recover&&p.job.state === 'running') {
         p.job.state = 'interrupted';
         p.job.current = undefined;
         await this.save(p);
@@ -52,7 +53,7 @@ export class Store {
                 await fs.writeFile(dest, files[s.asset]);
             }
         await fs.writeFile(path.join(staging, 'project.json'), JSON.stringify(p));
-        await fs.rename(staging, this.dir(p.id));
+        await atomicRename(staging, this.dir(p.id));
     }
     catch (error) {
         await fs.rm(staging, { recursive: true, force: true });

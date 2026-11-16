@@ -1,3 +1,9 @@
+import {GenerationContentError,isContentError} from '../core/errors';
+import {planChineseSections,missingChineseQuestions,reusableChineseGroups} from '../core/chinese-organization';
+import {taskPool,serialSnapshots} from '../core/task-pool';
+import {phaseFor} from '../core/task-timing';
+import {assertOcrReviewed,protectChinese,fidelityChecker} from '../core/source-fidelity';
+import {annotateFailure,preserveFailure} from './diagnostics';
 import {resolveEvidence} from '../core/evidence';
 import {z} from 'zod';
 import {callAI} from './ai';
@@ -5,43 +11,97 @@ import type {Project,Settings} from '../core/model';
 import {chineseSchema,chineseReviewSchema,chineseGroupSchema,chineseResultSchema,chineseChecks,chineseFingerprint,validateChineseResult,applicableChineseModules,chineseModuleNames,type ChineseModule} from '../core/chinese';
 import {ServiceStopError} from '../core/generation-model';
 import {chineseSystem,chineseOrganizeInstruction,chineseInstructions as instructions} from '../core/chinese-prompts';
-export async function organizeChinese(p:Project,s:Settings,key:string,signal:AbortSignal){
- const schema=z.object({groups:z.array(chineseGroupSchema.omit({versions:true}))});
- const out=await callAI(s,key,schema,chineseOrganizeInstruction+'\n输入：'+JSON.stringify(p.sources.map(x=>({id:x.id,role:x.role,name:x.name,blocks:x.blocks}))),signal,()=>{},chineseSystem,[],32768);
- const data=chineseSchema.parse({groups:out.groups});
- if(!data.groups.length||!data.groups.some(g=>g.questions.length))throw Error('未整理出题目，原课件已保留');
- for(const g of data.groups)for(const m of g.materials){const src=p.sources.find(s=>s.id===m.sourceId);if(!src||!m.blockIds.length)throw Error('材料未关联原文件，未保存整理结果');const blocks=m.blockIds.map(id=>{const b=src.blocks.find(b=>b.id===id);if(!b)throw Error('材料引用了不存在的原文块');return b;});const bound=blocks.map(b=>b.text).join('\n');m.text=resolveEvidence([{id:'source',text:bound}],{blockId:'source',quote:m.text}).quote;}
- const errors=chineseChecks(data).filter(x=>/重复|不存在/.test(x));if(errors.length)throw Error(errors.join('；'));
- if(p.chinese?.groups.length)data.history=[...p.chinese.history,{at:new Date().toISOString(),groups:p.chinese.groups}];
- return {...p,chinese:data};
+export async function organizeChinese(p:Project,s:Settings,key:string,signal:AbortSignal,onStatus:(message:string)=>void=()=>{}){
+ assertOcrReviewed(p.sources);
+ const sections=planChineseSections(p);
+ if(!sections.length)throw Error('未找到可整理的试卷材料，原课件已保留');
+ const groups:NonNullable<Project['chinese']>['groups']=[],issues:string[]=[],fidelity:NonNullable<Project['sourceFidelityIssues']>=[];
+ let stopped=false;
+ for(let index=0;index<sections.length;index++){
+  if(signal.aborted)throw Error('整理已取消，原课件与已生成讲评保留');
+  const section=sections[index],reused=reusableChineseGroups(section,p.chinese?.groups||[]);
+  if(reused.length){groups.push(...reused);onStatus(`已保留 ${section.title} 的题目与讲评`);continue;}
+  const retainPrevious=()=>{
+   const previous=(p.chinese?.groups||[]).filter(g=>!groups.some(saved=>saved.id===g.id)&&g.questions.length&&g.questions.every(q=>section.numbers.includes(q.number.match(/^\d+/)?.[0]||q.number))&&g.materials.some(m=>m.sourceId===section.source.id));
+   groups.push(...structuredClone(previous));
+  };
+  if(stopped){issues.push(`${section.title}：服务中断，尚未整理；请稍后再次整理补齐。`);retainPrevious();continue;}
+  onStatus(`正在整理第 ${index+1}/${sections.length} 篇：${section.title}（题号 ${section.numbers.join('、')||'由材料识别'}）`);
+  const scope=structuredClone(p);scope.sources=[section.source,...p.sources.filter(s=>s.role!=='paper')];scope.chinese=chineseSchema.parse({});
+  let candidate:Project|undefined,error:unknown;
+  for(let attempt=0;attempt<2;attempt++){
+   try{
+    candidate=await organizeChineseSection(scope,s,key,signal,section.numbers,attempt>0);
+    const missing=missingChineseQuestions(section,candidate.chinese!.groups);
+    if(missing.length)throw new GenerationContentError(`遗漏第 ${missing.join('、')} 题`);
+    if(section.numbers.length&&candidate.chinese!.groups.some(g=>g.questions.some(q=>!section.numbers.includes(q.number.match(/^\d+/)?.[0]||q.number))))throw new GenerationContentError('返回了当前篇目范围之外的题号');
+    error=undefined;break;
+   }catch(e){error=e;if(signal.aborted)throw Error('整理已取消，原课件与已生成讲评保留');if(e instanceof ServiceStopError){stopped=true;break;}if(!isContentError(e))throw e;if(attempt===0)onStatus(`${section.title} 整理不完整，正在单独重试这一篇…`);}
+  }
+  if(error){
+   issues.push(`${section.title}：${error instanceof Error?error.message:String(error)}；再次整理可补齐。`);
+   retainPrevious();continue;
+  }
+  for(const group of candidate!.chinese!.groups){
+   const prefix=section.id+':';group.id=prefix+group.id;
+   for(const m of group.materials)m.id=prefix+m.id;
+   for(const q of group.questions){q.id=prefix+q.id;q.materialIds=q.materialIds.map(id=>prefix+id);}
+   groups.push(group);
+  }
+  fidelity.push(...(candidate!.sourceFidelityIssues||[]));
+ }
+ if(!groups.length)throw Error('本次未整理出完整篇目，原课件已保留：'+issues.join('；'));
+ const next=structuredClone(p),old=p.chinese;
+ next.chinese=chineseSchema.parse({...old,groups,organizationIssues:issues,tasks:(old?.tasks||[]).filter(t=>groups.some(g=>g.id===t.groupId&&(!t.questionId||g.questions.some(q=>q.id===t.questionId)))),history:[...(old?.history||[]),...(old?.groups.length?[{at:new Date().toISOString(),groups:old.groups}]:[])]});
+ next.sourceFidelityIssues=[...(p.sourceFidelityIssues||[]),...fidelity];
+ onStatus(issues.length?`已整理/保留 ${groups.length} 个材料组，${issues.length} 个篇目待补齐，请查看整理报告`:`整卷整理完成：${groups.length} 个材料组，${groups.flatMap(g=>g.questions).length} 题`);
+ return {...next,chinese:next.chinese!};
 }
-export async function generateChinese(p:Project,groupIds:string[],modules:ChineseModule[],s:Settings,key:string,signal:AbortSignal,checkpoint:(p:Project,message:string)=>Promise<void>,resume=false,questionIds?:string[]){
+async function organizeChineseSection(p:Project,s:Settings,key:string,signal:AbortSignal,numbers:string[]=[],retry=false){
+ assertOcrReviewed(p.sources);
+ const schema=z.object({groups:z.array(chineseGroupSchema.omit({versions:true}))});
+ const out=await callAI(s,key,schema,chineseOrganizeInstruction+`\n本次只整理当前试卷片段，必须完整覆盖题号：${numbers.join('、')||'片段内所有题目'}；不要只返回第一篇或前几题。材料引用应覆盖完整原文，不节选。${retry?'上次结果遗漏或关联无效，请重新完整整理本片段。':''}`+'\n输入：'+JSON.stringify({scope:{questionNumbers:numbers,mode:'仅整理当前试卷片段，答案来源中的其他题号不属于本次范围'},sources:p.sources.map(x=>({id:x.id,role:x.role,name:x.name,blocks:x.blocks}))}),signal,()=>{},chineseSystem,[],32768);
+ try{const data=chineseSchema.parse({groups:out.groups});
+ if(!data.groups.length||!data.groups.some(g=>g.questions.length))throw new GenerationContentError('未整理出题目，原课件已保留');
+ const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; const {literal}=fidelityChecker(sourceFidelityIssues);
+ for(const g of data.groups)for(const m of g.materials){const src=p.sources.find(s=>s.id===m.sourceId);if(!src||!m.blockIds.length)throw new GenerationContentError('材料未关联原文件，未保存整理结果');const blocks=m.blockIds.map(id=>{const b=src.blocks.find(b=>b.id===id);if(!b)throw new GenerationContentError('材料引用了不存在的原文块');return b;});const bound=blocks.map(b=>b.text).join('\n');m.text=literal(bound,m.text,'材料'+m.title+'原文');}
+ protectChinese(p,data,sourceFidelityIssues);
+ const errors=chineseChecks(data).filter(x=>/重复|不存在/.test(x));if(errors.length)throw new GenerationContentError(errors.join('；'));
+ if(p.chinese?.groups.length)data.history=[...p.chinese.history,{at:new Date().toISOString(),groups:p.chinese.groups}];
+ return {...p,chinese:data,sourceFidelityIssues};
+ }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});}
+}
+export async function generateChinese(p:Project,groupIds:string[],modules:ChineseModule[],s:Settings,key:string,signal:AbortSignal,saveSnapshot:(p:Project,message:string)=>Promise<void>,resume=false,questionIds?:string[]){
+ const checkpoint=serialSnapshots(saveSnapshot);let stopped=false;
  const d=p.chinese;if(p.subject!=='chinese'||!d)throw Error('不是语文课件');
  const structural=chineseChecks(d).filter(x=>/重复|不存在|为空/.test(x));if(structural.length)throw Error(structural.join('；'));
  if(!resume){if(!modules.length||modules.some(m=>!(m in instructions)))throw Error('请选择有效教学模块');const groups=d.groups.filter(g=>groupIds.includes(g.id));if(!groups.length)throw Error('请选择材料组');d.tasks=[];for(const g of groups){const qs=g.questions.filter(q=>!q.excluded&&(!questionIds||questionIds.includes(q.id)));if(qs.some(q=>!q.confirmed))throw Error(g.title+'：请先核对题面');for(const module of modules.filter(m=>applicableChineseModules(g).includes(m))){const targets=['analysis','practice'].includes(module)?qs:[undefined];for(const q of targets)d.tasks.push({id:crypto.randomUUID(),groupId:g.id,questionId:q?.id,questionIds:qs.map(q=>q.id),module,fingerprint:chineseFingerprint(d,g,q?.id),state:'pending',error:'',attempts:0});}}}
  if(!d.tasks.length)throw Error('没有适用任务');
  for(const t of d.tasks){const g=d.groups.find(g=>g.id===t.groupId);if(!g||t.fingerprint!==chineseFingerprint(d,g,t.questionId))throw Error('材料或题目已变化，请重新选择生成');if(t.state!=='complete'){if((t.questionIds||g.questions.filter(q=>!q.excluded).map(q=>q.id)).some(id=>!g.questions.some(q=>q.id===id&&q.confirmed&&!q.excluded)))throw Error('题目核对或排除状态已变化，请重新选择生成范围');t.state='pending';}}
- for(const t of d.tasks){if(t.state==='complete'||signal.aborted)continue;const g=d.groups.find(g=>g.id===t.groupId)!;t.state='running';t.attempts++;t.error='';await checkpoint(p,'正在生成：'+g.title+' · '+chineseModuleNames[t.module]);
- try{const qs=g.questions.filter(q=>!q.excluded&&(!t.questionId||q.id===t.questionId)&&(!t.questionIds||t.questionIds.includes(q.id)));const ids=new Set(qs.flatMap(q=>q.materialIds));const materials=d.groups.flatMap(g=>g.materials).filter(m=>g.materials.some(x=>x.id===m.id)||ids.has(m.id));let input:unknown={kind:g.kind,title:g.title,materials:materials.map(({image,...m})=>({...m,hasImage:!!image})),questions:qs};let images=materials.flatMap(m=>m.image?[m.image]:[]);
+ await taskPool(d.tasks.filter(t=>t.state!=='complete'),async t=>{if(signal.aborted)return;const g=d.groups.find(g=>g.id===t.groupId)!;t.state='running';t.attempts++;t.error='';t.startedAt=Date.now();delete t.finishedAt;t.phase='generating';
+ const status=(message:string)=>{t.phase=phaseFor(message);void checkpoint(p,message).catch(()=>{});};await checkpoint(p,'正在生成：'+g.title+' · '+chineseModuleNames[t.module]);if(signal.aborted||stopped){t.state='pending';return;}
+ let candidate:unknown;try{const qs=g.questions.filter(q=>!q.excluded&&(!t.questionId||q.id===t.questionId)&&(!t.questionIds||t.questionIds.includes(q.id)));const ids=new Set(qs.flatMap(q=>q.materialIds));const materials=d.groups.flatMap(g=>g.materials).filter(m=>g.materials.some(x=>x.id===m.id)||ids.has(m.id));let input:unknown={kind:g.kind,title:g.title,materials:materials.map(({image,...m})=>({...m,hasImage:!!image})),questions:qs};let images=materials.flatMap(m=>m.image?[m.image]:[]);
  if(t.module==='practice'){
-  const blueprint=await callAI(s,key,z.object({skill:z.string().min(1),format:z.string().min(1),constraints:z.array(z.string())}),'仅提炼目标语文题的考查能力、作答形式及必要约束。不输出原卷人名、故事、事实、答案或原题选项。\n输入：'+JSON.stringify({kind:g.kind,questions:qs}),signal,()=>{},chineseSystem);
+  const blueprint=await callAI(s,key,z.object({skill:z.string().min(1),format:z.string().min(1),constraints:z.array(z.string())}),'仅提炼目标语文题的考查能力、作答形式及必要约束。不输出原卷人名、故事、事实、答案或原题选项。\n输入：'+JSON.stringify({kind:g.kind,questions:qs}),signal,status,chineseSystem);
   input=blueprint;images=[];
  }
- const raw=await callAI(s,key,chineseResultSchema,instructions[t.module]+'\n每块给label、text、evidence；引用只用materialId和该材料连续逐字quote，AI新编练习evidence为空数组。\n输入：'+JSON.stringify(input),signal,()=>{},chineseSystem,images);
+ const raw=await callAI(s,key,chineseResultSchema,instructions[t.module]+'\n每块给label、text、evidence；引用只用materialId和该材料连续逐字quote，AI新编练习evidence为空数组。\n输入：'+JSON.stringify(input),signal,status,chineseSystem,images);candidate=raw;
  if(t.module==='practice'){
-  const review=await callAI(s,key,z.object({valid:z.boolean(),reason:z.string()}),'独立复核这道AI新编语文练习：材料与题面是否齐全、约束清楚、答案是否由新材料支持，是否存在未说明的多解或错误。只检查新题，不补造缺失条件；问题必须判valid=false。\n输入：'+JSON.stringify(raw),signal,()=>{},chineseSystem);
-  if(!review.valid)throw Error('新编演练复核未通过：'+review.reason);
+  status('正在复核新编练习');
+  const review=await callAI(s,key,z.object({valid:z.boolean(),reason:z.string()}),'独立复核这道AI新编语文练习：材料与题面是否齐全、约束清楚、答案是否由新材料支持，是否存在未说明的多解或错误。只检查新题，不补造缺失条件；问题必须判valid=false。\n输入：'+JSON.stringify(raw),signal,status,chineseSystem);
+  if(!review.valid)throw new GenerationContentError('新编演练复核未通过：'+review.reason);
  }
- if(signal.aborted)break;const result=validateChineseResult(d,g,raw);if(t.module==='analysis'&&qs.some(q=>!q.answer.trim())&&result.status==='ok'){result.status='needs_review';result.notices.push('缺少参考答案，AI建议须经教师核实');}g.versions.push({id:crypto.randomUUID(),module:t.module,questionId:t.questionId,createdAt:new Date().toISOString(),fingerprint:t.fingerprint,confirmed:false,result});t.state='complete';}
- catch(error){t.state=signal.aborted?'pending':'failed';t.error=error instanceof Error?error.message:String(error);if(error instanceof ServiceStopError){await checkpoint(p,t.error);break;}}
- await checkpoint(p,t.state==='failed'?'此项失败：'+t.error:'已保存：'+g.title+' · '+chineseModuleNames[t.module]);}
+ if(signal.aborted)return;const result=validateChineseResult(d,g,raw);if(t.module==='analysis'&&qs.some(q=>!q.answer.trim())&&result.status==='ok'){result.status='needs_review';result.notices.push('缺少参考答案，AI建议须经教师核实');}g.versions.push({id:crypto.randomUUID(),module:t.module,questionId:t.questionId,createdAt:new Date().toISOString(),fingerprint:t.fingerprint,confirmed:false,result});t.state='complete';}
+ catch(error){if(!isContentError(error))stopped=true;t.state=signal.aborted?'pending':'failed';t.error=error instanceof Error?error.message:String(error);if(candidate)t.error=(await annotateFailure(error,{stage:'chinese-validation',module:t.module,groupId:g.id,questionId:t.questionId,candidate})).message;}
+ t.finishedAt=Date.now();t.phase='saving';
+ await checkpoint(p,t.state==='failed'?'此项失败：'+t.error:'已保存：'+g.title+' · '+chineseModuleNames[t.module]);},()=>signal.aborted||stopped);
  for(const t of d.tasks)if(t.state==='running')t.state='pending';await checkpoint(p,`语文生成结束：${d.tasks.filter(t=>t.state==='complete').length} 项已保存，${d.tasks.filter(t=>t.state!=='complete').length} 项未完成。请核实后编排课件。`);return p;
 }
 
 export async function reviewChinese(p:Project,s:Settings,key:string,signal:AbortSignal){
  if(p.subject!=='chinese'||!p.chinese)throw Error('请选择语文课件');const d=p.chinese;if(!d.groups.length)throw Error('请先整理材料组');
  const snapshot=JSON.stringify([p.sources,d.groups.map(({versions,...g})=>g)]);
- const result=await callAI(s,key,chineseReviewSchema,'逐题对照原卷与答案来源校对语文试卷整理结果，核查题干选项错位、漏题、OCR疑字、材料遗漏、图片信息未核、答案来源和子问关联。只报告问题，不修改输入。checkedQuestionIds只能使用实际检查过的题目id；未检查全卷或无法核对图片时coverage=partial并说明limitations，不假称通过。findings的groupId与questionId使用输入值，组级问题questionId为空。不凭记忆补官方答案。\n输入：'+snapshot,signal,()=>{},chineseSystem);
+ const result=await callAI(s,key,chineseReviewSchema,'逐题对照原卷与答案来源校对语文试卷整理结果，核查题干选项错位、漏题、OCR疑字、材料遗漏、图片信息未核、答案来源和子问关联。只报告问题，不修改输入。checkedQuestionIds只能使用实际检查过的题目id；仅当材料存在非空image字段时才检查图片核验状态；无图材料的imageConfirmed=false是默认值，不构成未核图问题。未检查全卷或确有图片无法核对时coverage=partial并说明limitations，不假称通过。findings的groupId与questionId使用输入值，组级问题questionId为空。不凭记忆补官方答案。\n输入：'+snapshot,signal,()=>{},chineseSystem);
  const ids=d.groups.flatMap(g=>g.questions.map(q=>q.id));if(result.checkedQuestionIds.some(id=>!ids.includes(id))||new Set(result.checkedQuestionIds).size!==result.checkedQuestionIds.length)throw Error('校对覆盖题目编号无效，报告未保存');
  if(result.coverage==='complete'&&ids.some(id=>!result.checkedQuestionIds.includes(id)))throw Error('校对遗漏题目，不能标记全卷完成');for(const f of result.findings){const g=d.groups.find(g=>g.id===f.groupId);if(!g||f.questionId&&!g.questions.some(q=>q.id===f.questionId))throw Error('校对问题关联无效，报告未保存');}
  if(!p.sources.length||d.groups.some(g=>g.materials.some(m=>m.image))){result.coverage='partial';result.limitations.push('原页图像未在本次文字校对中核验，仍需教师对照原件。');}d.review={snapshot,result};return p;

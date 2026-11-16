@@ -1,3 +1,4 @@
+import {GenerationContentError,isContentError} from './errors';
 import{taskKinds,type GenerationContent,type GenerationTask,type GenerationMode,ServiceStopError}from'./generation-model';
 export{taskSchema,ServiceStopError}from'./generation-model';
 import type{Project}from'./model';
@@ -59,7 +60,7 @@ export async function runGeneration(project:Project,signal:AbortSignal,execute:(
   if(signal.aborted)break;const t=p.job.tasks![i];if(t.state!=='pending')continue;
   t.state='running';t.attempts++;t.error='';delete p.job.errors[t.id];p.job.current=t.id;await checkpoint();progress(p,'正在生成：'+t.title);
   try{const next=await execute(structuredClone(p),structuredClone(t));p=next;if(signal.aborted)break;if(p.job.tasks![i].state!=='failed')p.job.tasks![i].state='complete';p.job.done=[...new Set(p.job.tasks!.filter(t=>t.kind==='analysis'&&t.state==='complete').flatMap(t=>t.questionIds))];}
-  catch(error){const current=p.job.tasks![i];if(signal.aborted){current.state='pending';break;}current.state='failed';current.error=error instanceof Error?error.message:String(error);p.job.errors[t.id]=current.error;if(error instanceof ServiceStopError){p.job.stopReason=current.error;await checkpoint();break;}}
+  catch(error){const current=p.job.tasks![i];if(signal.aborted){current.state='pending';break;}current.state='failed';current.error=error instanceof Error?error.message:String(error);p.job.errors[t.id]=current.error;if(!isContentError(error)){p.job.stopReason=current.error;await checkpoint();break;}}
   await checkpoint();progress(p,p.job.tasks![i].state==='failed'?'此项失败，继续后续内容：'+t.title:'已保存：'+t.title);if(p.job.stopReason)break;
  }
  for(const t of p.job.tasks!)if(t.state==='running')t.state='pending';

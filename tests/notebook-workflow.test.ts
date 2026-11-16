@@ -4,6 +4,7 @@ import {test,expect} from 'vitest';
 import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
 import {entrySchema,notebookDeck,recordSchema} from '../src/core/notebook';
 import {NotebookStore} from '../src/desktop/notebook';
+import {chemQuestionSchema} from '../src/core/chemistry';
 const entry=()=>entrySchema.parse({id:crypto.randomUUID(),createdAt:new Date().toISOString(),projectId:'p',projectTitle:'测试来源',subject:'english',kind:'question',title:'测试题',text:'旧题面含答案 SECRET',context:'SECRET',studentText:'Which choice?',material:'READING',answer:'SECRET',reviewed:true,studentReady:true});
 const record=()=>({id:crypto.randomUUID(),className:'三班',student:'学生秘密姓名',cause:'错因',wrongAnswer:'WRONG',note:'PRIVATE',due:'2026-11-10',taught:true,mastered:false,reviews:[]});
 test('student deck excludes answers, names, private notes and wrong answers even when requested',()=>{const e=entry();e.records=[record()];const deck=notebookDeck([e],{ids:[e.id],audience:'student',modules:['material','question','answer','mistakes']});const text=JSON.stringify(deck);expect(text).toContain('Which choice?');for(const forbidden of ['SECRET','PRIVATE','学生秘密姓名','WRONG'])expect(text).not.toContain(forbidden);expect(()=>notebookDeck([{...e,studentReady:false}],{ids:[e.id],audience:'student',modules:['question']})).toThrow('确认学生版');});
@@ -15,3 +16,12 @@ test('unconfirmed Chinese image is retained but cannot silently mark content rev
 
 test('image attributes reject HTML injection while allowing data images',()=>{const e=entry();expect(entrySchema.safeParse({...e,images:['data:image/png;base64,AAAA" onerror="alert(1)']}).success).toBe(false);expect(entrySchema.safeParse({...e,images:['data:image/png;base64,AAAA']}).success).toBe(true);});
 test('excerpt source tracks a stable passage and does not guess a replacement after deletion',()=>{const p=emptyProject('来源','english');p.passages=[{id:'a',title:'原文',type:'reading',paragraphs:[{id:'b',text:'The selected sentence. Updated context.'}],translation:'',vocabulary:'',longSentences:'',pool:''}];const e=entrySchema.parse({...entry(),kind:'excerpt',text:'The selected sentence.',sourceRef:{passageId:'a'}});expect(notebookExcerptSource(p,e).selectionFound).toBe(true);expect(notebookExcerptSource(p,e).context).toContain('Updated context');p.passages[0].paragraphs[0].text='A different sentence.';expect(notebookExcerptSource(p,e).selectionFound).toBe(false);expect(e.text).toBe('The selected sentence.');});
+test('化学实验片段检查对应模块的新版本，不拿逐题讲评当作原文',()=>{
+ const p=emptyProject('实验','chemistry'),q=chemQuestionSchema.parse({id:'q',number:'1',stem:'题干'});p.chemistry!.questions=[q];
+ q.versions=[{id:'v',module:'experiment',origin:'teacher',confirmed:false,fingerprint:'source',createdAt:'2026-11-16',result:{status:'ok',notices:[],blocks:[{label:'实验步骤',text:'先检查气密性。'}]}}];
+ const e=entrySchema.parse({...entry(),subject:'chemistry',kind:'excerpt',text:'先检查气密性。',sourceRef:{questionId:'q',versionId:'v'}});
+ expect(notebookExcerptSource(p,e).selectionFound).toBe(true);
+ q.versions.push({...q.versions[0],id:'v2',result:{status:'ok',notices:[],blocks:[{label:'实验步骤',text:'更正后的步骤。'}]}});
+ expect(notebookExcerptSource(p,e).selectionFound).toBe(false);expect(notebookExcerptSource(p,e).context).toContain('更正后的步骤');
+ q.versions=q.versions.filter(v=>v.id!=='v');expect(()=>notebookExcerptSource(p,e)).toThrow('版本已不存在');
+});

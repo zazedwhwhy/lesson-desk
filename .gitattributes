@@ -15,3 +15,5 @@ LICENSE text eol=lf
 *.ttf binary
 *.png binary
 *.jpg binary
+*.pdf binary
+*.docx binary

@@ -1,0 +1,23 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url),asar=require('@electron/asar');
+const version=process.argv[2];
+if(!/^\d+\.\d+\.\d+(?:-beta\.\d+)?$/.test(version||''))throw Error('Provide release version');
+const beta=version.includes('-beta.'),root='release/'+version,archive=root+'/win-unpacked/resources/app.asar';
+const files=asar.listPackage(archive).map(f=>f.replace(/\\/g,'/').replace(/^\//,''));
+const ui=beta?'dist-beta':'dist',desktop=beta?'dist-desktop-beta':'dist-desktop';
+const wrong=beta?['dist/','dist-desktop/']:['dist-beta/','dist-desktop-beta/'];
+const unsafe=files.filter(f=>wrong.some(prefix=>f.startsWith(prefix))||/^(?:tests|test-results|scripts|designs|\.tools)\//.test(f)||/(?:^|\/)(?:settings|auth|project|prompts)\.json$/.test(f));
+const pkg=JSON.parse(asar.extractFile(archive,'package.json'));
+const mismatches=[],checked=[];
+function walk(directory){for(const e of fs.readdirSync(directory,{withFileTypes:true})){const file=path.join(directory,e.name);if(e.isDirectory())walk(file);else{checked.push(file);if(!asar.extractFile(archive,file).equals(fs.readFileSync(file)))mismatches.push(file);}}}
+walk(ui);walk(desktop);
+const main=asar.extractFile(archive,path.join(desktop,'main.cjs')).toString(),preload=asar.extractFile(archive,path.join(desktop,'preload.cjs')).toString();
+const notebookBackend=main.includes('notebook-add'),notebookPreload=preload.includes('notebook-add'),notebookUi=files.some(f=>f.startsWith(ui+'/assets/Notebook-')&&f.endsWith('.js'));
+const installer=root+'/LessonDesk-'+version+'-Setup.exe';
+const result={version:pkg.version,main:pkg.main,unsafe,mismatches,checkedBuildFiles:checked.length,notebookBackend,notebookPreload,notebookUi,installerBytes:fs.statSync(installer).size,sha256:createHash('sha256').update(fs.readFileSync(installer)).digest('hex')};
+fs.mkdirSync('test-results/release-'+version+'/package',{recursive:true});fs.writeFileSync('test-results/release-'+version+'/package/archive-check.json',JSON.stringify(result,null,2));
+console.log(JSON.stringify(result));
+if(pkg.version!==version||pkg.main!==desktop+'/main.cjs'||unsafe.length||mismatches.length||[notebookBackend,notebookPreload,notebookUi].some(enabled=>enabled!==beta))process.exitCode=1;

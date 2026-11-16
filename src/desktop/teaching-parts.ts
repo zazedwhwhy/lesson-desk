@@ -21,7 +21,7 @@ export function commitTeachingModule(p:Project,pid:string,module:TeachingModule,
 export function sentenceTokens(text:string){return[...text.matchAll(/\S+/g)].map(m=>({text:m[0],start:m.index!,end:m.index!+m[0].length}));}
 export function bindTokenRange(quote:string,start:number,end:number){const tokens=sentenceTokens(quote);if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>tokens.length)throw new GenerationContentError('句法成分编号范围无效：'+start+'–'+end+'，原句共'+tokens.length+'词');return quote.slice(tokens[start-1].start,tokens[end-1].end);}
 export async function generateTeachingPart(p:Project,pid:string,module:Exclude<TeachingModule,'transfer'>,ids:string[],settings:Settings,key:string,signal:AbortSignal,onRetry:(s:string)=>void=()=>{}){
- const a=p.passages.find(a=>a.id===pid);if(!a||a.type==='writing')throw Error('此材料没有可供精读的英文原文');const catalog=createCitationCatalog(a.paragraphs),complete=completeSentenceIds(catalog);if(['sentences','imitation'].includes(module)&&!complete.length)throw Error('原文没有不含空位的完整句子，此项需补充核实后的原文；其他模块继续生成');
+ const a=p.passages.find(a=>a.id===pid);if(!a||a.type==='writing')throw Error('此材料没有可供精读的英文原文');const catalog=createCitationCatalog(a.paragraphs),complete=completeSentenceIds(catalog);if(['sentences','imitation'].includes(module)&&!complete.length)throw new GenerationContentError('原文没有不含空位的完整句子，此项需补充核实后的原文；其他模块继续生成');
  const quantity=countRequest(settings,module,complete.length);
  const lexiconSchema=lexiconGenerationSchema.max(module==='lexicon'?quantity.limit:20);
  const sentence=teachingCoreSchema.shape.sentences.element;
