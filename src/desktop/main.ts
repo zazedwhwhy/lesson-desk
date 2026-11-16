@@ -1,5 +1,8 @@
 import {runParallelGeneration} from './parallel-generation';
 import { applyOcrReview, ocrReviewRequestSchema } from '../core/ocr-review';
+import {queueManualOcr} from '../core/manual-ocr';
+import {refreshChemistryFidelity} from '../core/chemistry-review';
+import {reviewChemistry} from './chemistry-review';
 import { connectionSettings } from '../core/ai-settings';
 import {initializeDiagnostics} from './diagnostics';
 import {organizeChemistry,generateChemistry,chemistryCaller} from './chemistry';
@@ -122,7 +125,7 @@ app.whenReady().then(async () => {
         await store.asset(id, source.asset, bytes);
         p.sources.push(source);
     } return store.save(p); });
-    handle('ocr',async(id:string)=>{if(running.has(id))throw Error('任务正在处理');const p=await store.load(id);const targets=p.sources.filter(s=>s.ocrPages?.length);if(!targets.length)throw Error('没有待识别扫描页');const {s,key}=await credentials();const c=new AbortController();running.set(id,c);try{for(const source of targets){if(!source.asset)throw Error('原PDF缺失，请重新上传');validateBundlePath(source.asset);await recognizeScan(path.join(store.dir(id),source.asset),source,s,key,c.signal,async(_,message)=>{p.updatedAt=new Date().toISOString();await store.save(p);progress(p,message);});}return await store.save(p);}finally{running.delete(id);}});
+    handle('ocr',async(id:string,manual?:unknown)=>{if(running.has(id))throw Error('任务正在处理');const p=await store.load(id);const requested=manual===undefined?undefined:queueManualOcr(p.sources,manual);const targets=requested?[requested.source]:p.sources.filter(s=>s.ocrPages?.length);if(!targets.length)throw Error('没有待识别扫描页');const {s,key}=await credentials();const c=new AbortController();running.set(id,c);try{for(const source of targets){if(!source.asset)throw Error('原PDF缺失，请重新上传');validateBundlePath(source.asset);await recognizeScan(path.join(store.dir(id),source.asset),source,s,key,c.signal,async(_,message)=>{p.updatedAt=new Date().toISOString();await store.save(p);progress(p,message);},requested?.pages);}return await store.save(p);}finally{running.delete(id);}});
     handle('organize', async (id: string,recover=false) => { if (running.has(id))
         throw Error('任务已在运行'); const p = await store.load(id); if (!p.sources.length)
         throw Error('请先上传试卷和答案，再点击整理试卷'); if(p.sources.some(s=>s.ocrPages?.length))throw Error('扫描页尚未识别，请先点击识别扫描页'); const { s, key } = await credentials(); const controller = new AbortController(); running.set(id, controller); try {
@@ -191,6 +194,8 @@ app.whenReady().then(async () => {
         if(running.has(id))throw Error('已有任务正在处理');if(!specialKinds.includes(kind))throw Error('专项类型无效');const input=specialInputSchema.parse(raw);let p=planGeneration(await store.load(id),input.questionIds,'special');p.job.tasks=p.job.tasks!.filter(t=>t.passageId===pid&&t.specialKind===kind);if(!p.job.tasks.length)throw Error('此专项不适用于所选题目');
         const{s,key}=await credentials(),c=new AbortController();running.set(id,c);try{return await runParallelGeneration(p,c.signal,async (p,_task,status)=>{const next=await generateSpecial(p,pid,kind,input,s,key,c.signal,status),result=next.passages.find(a=>a.id===pid)!.special!.versions.at(-1)!.result;if(!result.items.length)throw Error('专项未生成可用内容：'+result.notices.join('；'));return next;},p=>store.save(p),false,progress).then(result=>{notifyGeneration(result);return result;});}finally{running.delete(id);}
     });
+    handle('recheck-chemistry',async(id:string)=>{if(running.has(id))throw Error('任务处理中');const c=new AbortController();running.set(id,c);try{const next=refreshChemistryFidelity(await store.load(id));const saved=await store.save(next);progress(saved,`已重新检查当前题目：${saved.sourceFidelityIssues?.length||0} 处文字差异；公式与题图请对照原页`);return saved;}finally{running.delete(id);}});
+    handle('review-chemistry',async(id:string)=>{if(running.has(id))throw Error('任务处理中');const p=await store.load(id),{s,key}=await credentials(),c=new AbortController();running.set(id,c);try{const next=await reviewChemistry(p,s,key,c.signal,message=>progress(p,message));if(c.signal.aborted)throw Error('校对已取消，保留旧报告');return await store.save(next);}finally{running.delete(id);}});
     handle('review-chinese',async(id:string)=>{if(running.has(id))throw Error('任务处理中');const p=await store.load(id),{s,key}=await credentials(),c=new AbortController();running.set(id,c);try{const next=await reviewChinese(p,s,key,c.signal);if(c.signal.aborted)throw Error('校对已取消，保留旧报告');return store.save(next);}finally{running.delete(id);}});
     handle('generate-chinese',async(id:string,groups:string[],modules:ChineseModule[],resume=false,questions?:string[])=>{
         if(running.has(id))throw Error('已有任务正在处理');if(!Array.isArray(groups)||!Array.isArray(modules)||modules.some(m=>!chineseModules.includes(m))||typeof resume!=='boolean')throw Error('生成范围无效');

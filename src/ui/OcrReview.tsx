@@ -55,6 +55,10 @@ export function OcrReview({ project: p, onProject, disabled = false }: { project
         for (const key of keys) previews.current.get(key)?.abort();
         setSelected(items => items.filter(key => !keys.includes(key)));
         setMessage(`已记录 ${keys.length} 页人工核对结果；全部核对后可整理试卷。`);
+      } else if(request.kind==='restore'){
+        const ids=new Set(request.page.expectedBlocks.map(b=>b.id));
+        setDraft(values=>Object.fromEntries(Object.entries(values).filter(([id])=>!ids.has(id))));
+        setMessage('已恢复本页上次修改前文字，请对照原页核对。');
       } else {
         // Saving one page must not discard unsaved edits on another page.
         setDraft(values => Object.fromEntries(Object.entries(values).filter(([id]) => !Object.hasOwn(request.texts, id))));
@@ -94,6 +98,7 @@ export function OcrReview({ project: p, onProject, disabled = false }: { project
           <div className="actions">
             <button disabled={locked || !changed || recognizing} onClick={() => void save({ kind: 'correct', page: entry(source, page), texts: Object.fromEntries(blocks.filter(b => draft[b.id] !== undefined && draft[b.id] !== b.text).map(b => [b.id, draft[b.id]])) })}>保存本页校订</button>
             <button disabled={locked || changed || recognizing} onClick={() => void save({ kind: 'verify', pages: [entry(source, page)] })}>已对照原图核对第{page}页</button>
+            {source.ocrCorrections?.some(h=>h.page===page&&h.before.length)&&<button disabled={locked||changed||recognizing} onClick={()=>void save({kind:'restore',page:entry(source,page)})}>恢复本页上次修改前文字</button>}
           </div>
           {actionKeys.includes(key) && (saving || message) && <p role="status">{saving ? '正在保存本页核对结果…' : message}</p>}
           {changed && <p>请先保存校订，再确认本页。</p>}

@@ -8,3 +8,5 @@ export const chemInstructions:Record<ChemModule,string>={
  practice:'考点演练：只生成一道有针对性的变式题。blocks 必须恰好三个且标签依次为“题目”“答案”“解析与迁移”，题目中不泄露答案。给足独立作答条件，不引用不存在的附图；注明 AI 新编。'
 };
 export const chemistryOrganizeInstruction='整理化学试卷，逐题完整保留条件、选项和题号。sourceId 必须来自试卷材料；pages 是原文件页码。未知答案留空，不作答。整理阶段不解题、不配平、不校订；stem和options逐字保留该题完整原文及所有追问，不以图略解释改写原文字句。answer只摘录答案来源的连续原文，不概括或重新计算参考解析，不能改写原反应式。图片另行核对，所有整理结果需教师对照原页。';
+
+export const chemistryReviewInstruction='逐题对照化学原卷和参考答案，检查题干、小问、选项、公式的上下标/电荷/系数、单位、题图条件和答案关联。只报告具体问题，不重新解题、不改参考答案、不配平原题错式。checkedQuestionIds只填写本批实际检查过的题目id；不能确认的图示、结构式和文字提取顺序必须列入limitations，coverage=partial，不假报通过。findings给questionId和具体message。';

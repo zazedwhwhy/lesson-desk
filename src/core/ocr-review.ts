@@ -6,6 +6,7 @@ const pageSchema = z.object({ sourceId: z.string(), page: z.number().int().posit
 export const ocrReviewRequestSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('verify'), pages: z.array(pageSchema).min(1) }),
   z.object({ kind: z.literal('correct'), page: pageSchema, texts: z.record(z.string(), z.string()) }),
+  z.object({ kind: z.literal('restore'), page: pageSchema }),
 ]);
 export type OcrReviewRequest = z.infer<typeof ocrReviewRequestSchema>;
 export type OcrReviewPage = z.infer<typeof pageSchema>;
@@ -34,6 +35,13 @@ export function applyOcrReview(project: Project, raw: OcrReviewRequest): Project
     if (request.kind === 'verify') {
       source.ocrVerifiedPages = [...new Set([...(source.ocrVerifiedPages || []), entry.page])].sort((a, b) => a - b);
       source.ocrReviewPages = (source.ocrReviewPages || []).filter(n => n !== entry.page);
+    } else if(request.kind==='restore'){
+      const previous=[...(source.ocrCorrections||[])].reverse().find(h=>h.page===entry.page&&h.before.length);
+      if(!previous)throw Error('本页没有可恢复的识别前文字');
+      const before=structuredClone(source.blocks.filter(b=>b.page===entry.page)),after=structuredClone(previous.before);
+      source.blocks=[...source.blocks.filter(b=>b.page!==entry.page),...after].sort((a,b)=>(a.page||0)-(b.page||0));
+      source.ocrCorrections!.push({page:entry.page,at:new Date().toISOString(),before,after});
+      source.ocrVerifiedPages=(source.ocrVerifiedPages||[]).filter(n=>n!==entry.page);
     } else {
       const before = structuredClone(source.blocks.filter(b => b.page === entry.page));
       if (Object.keys(request.texts).some(id => !before.some(b => b.id === id))) throw Error('校订段落不属于所选页面');

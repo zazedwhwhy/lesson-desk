@@ -70,6 +70,6 @@ export async function organizeWithCoverage(p:Project,signal:AbortSignal,request:
  next.organizationIssues=[...remaining,...failures];
  if(!scopes.length)next.organizationIssues.push('原材料中未找到可自动核对的明确题号，请对照原卷人工确认是否漏题。');
  if(!(next.subject==='chemistry'?next.chemistry!.questions.length:next.questions.length))throw new GenerationContentError('未整理出有效题目，原课件保留。'+next.organizationIssues.join('；'));
- status(next.organizationIssues.length?'整理结果已保存，仍有遗漏或待核实项，请查看整理报告':'整理完成，已覆盖原材料中检测到的题号和写作任务');
+ status(next.organizationIssues.length?'整理结果已保存，仍有遗漏或待核实项，请查看整理报告':(next.subject==='chemistry'?'整理完成，已覆盖原材料中检测到的题号；请继续核对公式与题图':'整理完成，已覆盖原材料中检测到的题号和写作任务'));
  return next;
 }

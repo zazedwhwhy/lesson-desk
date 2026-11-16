@@ -1,4 +1,5 @@
 import type {Project,Source,Question} from './model';
+import {isExamInstruction} from './source-fidelity';
 
 export type OrganizationTarget={number?:string;type?:'writing'|'continuation';sourceId:string};
 export type OrganizationScope={source:Source;targets:OrganizationTarget[];title:string};
@@ -10,7 +11,7 @@ function numbers(text:string,english:boolean){
  const rows=[...text.matchAll(/^\s*(\d{1,3})\s*[.．、]\s*(?!\d)(\S.*)/gm)];
  for(const [index,m] of rows.entries()){
   // Numbered exam instructions and page labels are not questions.
-  if(/^(?:答题前|考生|本试卷|考试时间|请将|请在答题卡|请填写|请按如下格式|注意事项|满分|(?:写作|续写)?词数|开头和结尾已)/.test(m[2]))continue;
+  if(isExamInstruction(m[2]))continue;
   if(english){
    const body=text.slice(m.index,rows[index+1]?.index??text.length);
    const options=/(?:^|\s)A[.．、)]\s*\S[\s\S]*(?:^|\s)B[.．、)]\s*\S/m.test(body);

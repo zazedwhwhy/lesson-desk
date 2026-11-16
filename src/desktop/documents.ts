@@ -15,6 +15,7 @@ export async function readDocument(file: string, role: Source['role']): Promise<
     try {
         if (doc.numPages > 100)
             throw Error('PDF不能超过100页');
+        source.pageCount=doc.numPages;
         for (let n = 1; n <= doc.numPages; n++) {
             const page = await doc.getPage(n);
             const c = await page.getTextContent();
