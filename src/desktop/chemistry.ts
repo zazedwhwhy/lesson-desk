@@ -21,8 +21,8 @@ export async function organizeChemistry(p:Project,s:Settings,key:string,signal:A
   if(q.pages.some(page=>!source.blocks.some(b=>b.page===page)))throw Error('整理结果页码不在来源中，原题目未替换');
   numbers.add(q.number);
  }
- protectChemistry(p,out);
- const next=structuredClone(p);if(next.chemistry!.questions.length)next.chemistry!.history.push({at:new Date().toISOString(),questions:next.chemistry!.questions});
+ const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; protectChemistry(p,out,sourceFidelityIssues);
+ const next=structuredClone(p); next.sourceFidelityIssues=sourceFidelityIssues;if(next.chemistry!.questions.length)next.chemistry!.history.push({at:new Date().toISOString(),questions:next.chemistry!.questions});
  next.chemistry!.questions=out.questions.map(q=>chemQuestionSchema.parse({...q,id:uid()}));next.chemistry!.tasks=[];
  return next;
  }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});}

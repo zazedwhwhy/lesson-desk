@@ -1,4 +1,4 @@
-import {assertOcrReviewed,protectChinese} from '../core/source-fidelity';
+import {assertOcrReviewed,protectChinese,fidelityChecker} from '../core/source-fidelity';
 import {annotateFailure,preserveFailure} from './diagnostics';
 import {resolveEvidence} from '../core/evidence';
 import {z} from 'zod';
@@ -13,11 +13,12 @@ export async function organizeChinese(p:Project,s:Settings,key:string,signal:Abo
  const out=await callAI(s,key,schema,chineseOrganizeInstruction+'\n输入：'+JSON.stringify(p.sources.map(x=>({id:x.id,role:x.role,name:x.name,blocks:x.blocks}))),signal,()=>{},chineseSystem,[],32768);
  try{const data=chineseSchema.parse({groups:out.groups});
  if(!data.groups.length||!data.groups.some(g=>g.questions.length))throw Error('未整理出题目，原课件已保留');
- for(const g of data.groups)for(const m of g.materials){const src=p.sources.find(s=>s.id===m.sourceId);if(!src||!m.blockIds.length)throw Error('材料未关联原文件，未保存整理结果');const blocks=m.blockIds.map(id=>{const b=src.blocks.find(b=>b.id===id);if(!b)throw Error('材料引用了不存在的原文块');return b;});const bound=blocks.map(b=>b.text).join('\n');m.text=resolveEvidence([{id:'source',text:bound}],{blockId:'source',quote:m.text}).quote;}
- protectChinese(p,data);
+ const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; const {literal}=fidelityChecker(sourceFidelityIssues);
+ for(const g of data.groups)for(const m of g.materials){const src=p.sources.find(s=>s.id===m.sourceId);if(!src||!m.blockIds.length)throw Error('材料未关联原文件，未保存整理结果');const blocks=m.blockIds.map(id=>{const b=src.blocks.find(b=>b.id===id);if(!b)throw Error('材料引用了不存在的原文块');return b;});const bound=blocks.map(b=>b.text).join('\n');m.text=literal(bound,m.text,'材料'+m.title+'原文');}
+ protectChinese(p,data,sourceFidelityIssues);
  const errors=chineseChecks(data).filter(x=>/重复|不存在/.test(x));if(errors.length)throw Error(errors.join('；'));
  if(p.chinese?.groups.length)data.history=[...p.chinese.history,{at:new Date().toISOString(),groups:p.chinese.groups}];
- return {...p,chinese:data};
+ return {...p,chinese:data,sourceFidelityIssues};
  }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});}
 }
 export async function generateChinese(p:Project,groupIds:string[],modules:ChineseModule[],s:Settings,key:string,signal:AbortSignal,checkpoint:(p:Project,message:string)=>Promise<void>,resume=false,questionIds?:string[]){

@@ -41,31 +41,45 @@ function numberedSource(sources:Source[],number:string){
  return withoutScore((next?tail.slice(0,next.index):tail).trim());
 }
 export function questionSource(sources:Source[],number:string){return numberedSource(sources,number)??sourceText(sources);}
-export function protectEnglish(p:Project,out:{passages:{id:string;type:string;paragraphs:{id:string;text:string}[];pool:string}[];questions:{number:string;stem:string;options:string[];answer:string;type:string;passageId:string}[]}){
+type FidelityReport = NonNullable<Project['sourceFidelityIssues']>;
+export function fidelityChecker(report?:FidelityReport){
+ const issue=(error:SourceFidelityError)=>{if(!report)throw error;report.push({location:error.location,expected:error.expected,received:error.received});};
+ const literal=(source:string,value:string,location:string,options?:{complete?:boolean})=>{
+  try{return checkLiteral(source,value,location,options);}catch(error){
+   if(!(error instanceof SourceFidelityError))throw error;
+   issue(error);return value; // Preserve the candidate with an explicit review report.
+  }
+ };
+ return {literal,issue};
+}
+export function protectEnglish(p:Project,out:{passages:{id:string;type:string;paragraphs:{id:string;text:string}[];pool:string}[];questions:{number:string;stem:string;options:string[];answer:string;type:string;passageId:string}[]},report?:FidelityReport){
+ const {literal,issue}=fidelityChecker(report);
  const paper=p.sources.filter(s=>s.role==='paper'),all=sourceText(paper),answers=sourceText(p.sources.filter(s=>s.role==='answer'));
- for(const a of out.passages){for(const b of a.paragraphs)b.text=checkLiteral(a.type==='listening'?sourceText(p.sources):all,b.text,a.id+'原文');if(a.pool)a.pool=checkLiteral(all,a.pool,a.id+'选项池');}
+ for(const a of out.passages){for(const b of a.paragraphs)b.text=literal(a.type==='listening'?sourceText(p.sources):all,b.text,a.id+'原文');if(a.pool)a.pool=literal(all,a.pool,a.id+'选项池');}
  for(const q of out.questions){
   const blank=['seven','cloze','grammar'].includes(q.type),original=questionSource(paper,q.number);
-  if(blank){const number=q.number.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),marker=new RegExp('(?:^|[^\\d])'+number+'(?!\\d)'),passage=out.passages.find(a=>a.id===q.passageId)?.paragraphs.map(b=>b.text).join('\n')||'';if(!marker.test(passage)||q.stem.trim()&&!marker.test(q.stem))throw new SourceFidelityError('第'+q.number+'题空号及原句',q.number,passage+'\n'+q.stem);}
-  q.stem=checkLiteral(blank?all:original,q.stem,'第'+q.number+'题题干');q.options=q.options.map((o,i)=>checkLiteral(original,o,'第'+q.number+'题选项'+(i+1)));if(q.answer&&!['writing','continuation'].includes(q.type))checkLiteral(answers,q.answer,'第'+q.number+'题参考答案');
+  if(blank){const number=q.number.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),marker=new RegExp('(?:^|[^\\d])'+number+'(?!\\d)'),passage=out.passages.find(a=>a.id===q.passageId)?.paragraphs.map(b=>b.text).join('\n')||'';if(!marker.test(passage)||q.stem.trim()&&!marker.test(q.stem))issue(new SourceFidelityError('第'+q.number+'题空号及原句',q.number,passage+'\n'+q.stem));}
+  q.stem=literal(blank?all:original,q.stem,'第'+q.number+'题题干');q.options=q.options.map((o,i)=>literal(original,o,'第'+q.number+'题选项'+(i+1)));if(q.answer&&!['writing','continuation'].includes(q.type))literal(answers,q.answer,'第'+q.number+'题参考答案');
  }
 }
-export function protectChemistry(p:Project,out:{questions:{number:string;sourceId:string;stem:string;options:string[];answer:string}[]}){
+export function protectChemistry(p:Project,out:{questions:{number:string;sourceId:string;stem:string;options:string[];answer:string}[]},report?:FidelityReport){
+ const {literal,issue}=fidelityChecker(report);
  const answers=sourceText(p.sources.filter(s=>s.role==='answer'));
  for(const q of out.questions){
   const sources=p.sources.filter(s=>s.id===q.sourceId&&s.role==='paper'),original=numberedSource(sources,q.number);
-  if(original===undefined)throw new SourceFidelityError('第'+q.number+'题来源题号',q.number,'未找到明确题号');
+  if(original===undefined){issue(new SourceFidelityError('第'+q.number+'题来源题号',q.number,'未找到明确题号'));continue;}
   q.stem=withoutScore(withoutNumber(q.stem,q.number));
-  checkLiteral(original,[q.stem,...q.options].join('\n'),'第'+q.number+'题全部作答要求',{complete:true});
-  q.stem=checkLiteral(original,q.stem,'第'+q.number+'题题干');q.options=q.options.map((o,i)=>checkLiteral(original,o,'第'+q.number+'题选项'+(i+1)));
+  literal(original,[q.stem,...q.options].join('\n'),'第'+q.number+'题全部作答要求',{complete:true});
+  q.stem=literal(original,q.stem,'第'+q.number+'题题干');q.options=q.options.map((o,i)=>literal(original,o,'第'+q.number+'题选项'+(i+1)));
   // An explicitly numbered answer section is authoritative. Retrieve its text
   // directly, including any undecoded PDF glyphs; the model cannot rewrite it.
   const bound=p.sources.filter(s=>s.role==='answer').flatMap(s=>{const text=numberedSource([s],q.number);return text?.startsWith('【答案】')?[text.slice(4).split('【解析】')[0].trim()]:[];});
   if(bound.length===1)q.answer=bound[0];
-  else if(q.answer)q.answer=checkLiteral(answers,q.answer,'第'+q.number+'题原参考答案');
+  else if(q.answer)q.answer=literal(answers,q.answer,'第'+q.number+'题原参考答案');
  }
 }
-export function protectChinese(p:Project,out:{groups:{questions:{number:string;stem:string;options:string[];answer:string;answerSource:string;confirmed?:boolean}[]}[]}){
+export function protectChinese(p:Project,out:{groups:{questions:{number:string;stem:string;options:string[];answer:string;answerSource:string;confirmed?:boolean}[]}[]},report?:FidelityReport){
+ const {literal,issue}=fidelityChecker(report);
  const paper=p.sources.filter(s=>s.role==='paper'),answers=sourceText(p.sources.filter(s=>s.role==='answer'));
- for(const g of out.groups)for(const q of g.questions){const original=questionSource(paper,q.number);q.stem=checkLiteral(original,withoutNumber(q.stem,q.number),'第'+q.number+'题题干');q.options=q.options.map((o,i)=>checkLiteral(original,o,'第'+q.number+'题选项'+(i+1)));if(q.answer&&q.answerSource==='provided')q.answer=checkLiteral(answers,q.answer,'第'+q.number+'题原参考答案');q.confirmed=false;}
+ for(const g of out.groups)for(const q of g.questions){const original=questionSource(paper,q.number);q.stem=literal(original,withoutNumber(q.stem,q.number),'第'+q.number+'题题干');q.options=q.options.map((o,i)=>literal(original,o,'第'+q.number+'题选项'+(i+1)));if(q.answer&&q.answerSource==='provided')q.answer=literal(answers,q.answer,'第'+q.number+'题原参考答案');q.confirmed=false;}
 }
