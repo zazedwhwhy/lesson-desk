@@ -1,3 +1,4 @@
+import {taskTiming} from './task-timing';
 import {paginateBlocks,defaultSlideLayout,type SlideLayout,type SlideBlock} from './slide-layout';
 import {z} from 'zod';
 export const chineseKinds=['information','literature','classical','poetry','recitation','language','writing'] as const;
@@ -12,7 +13,7 @@ const question=z.object({id:z.string().min(1),number:z.string(),stem:z.string(),
 const version=z.object({id:z.string(),module:z.enum(chineseModules),questionId:z.string().optional(),createdAt:z.string(),fingerprint:z.string(),confirmed:z.boolean().default(false),result:chineseResultSchema});
 export const chineseGroupSchema=z.object({id:z.string().min(1),section:z.string(),title:z.string(),kind:z.enum(chineseKinds),materials:z.array(material),questions:z.array(question),versions:z.array(version).default([])});
 export const chineseReviewSchema=z.object({coverage:z.enum(['complete','partial']),checkedQuestionIds:z.array(z.string()),limitations:z.array(z.string()),findings:z.array(z.object({groupId:z.string(),questionId:z.string(),message:z.string().min(1)}))});
-export const chineseSchema=z.object({review:z.object({snapshot:z.string(),result:chineseReviewSchema}).optional(),version:z.literal(1).default(1),groups:z.array(chineseGroupSchema).default([]),history:z.array(z.object({at:z.string(),groups:z.array(chineseGroupSchema)})).default([]),tasks:z.array(z.object({id:z.string(),groupId:z.string(),questionId:z.string().optional(),questionIds:z.array(z.string()).optional(),module:z.enum(chineseModules),fingerprint:z.string(),state:z.enum(['pending','running','complete','failed']),error:z.string(),attempts:z.number().default(0)})).default([])});
+export const chineseSchema=z.object({review:z.object({snapshot:z.string(),result:chineseReviewSchema}).optional(),version:z.literal(1).default(1),groups:z.array(chineseGroupSchema).default([]),history:z.array(z.object({at:z.string(),groups:z.array(chineseGroupSchema)})).default([]),tasks:z.array(z.object({...taskTiming,id:z.string(),groupId:z.string(),questionId:z.string().optional(),questionIds:z.array(z.string()).optional(),module:z.enum(chineseModules),fingerprint:z.string(),state:z.enum(['pending','running','complete','failed']),error:z.string(),attempts:z.number().default(0)})).default([])});
 export type ChineseData=z.infer<typeof chineseSchema>;
 export type ChineseGroup=z.infer<typeof chineseGroupSchema>;
 export type ChineseResult=z.infer<typeof chineseResultSchema>;

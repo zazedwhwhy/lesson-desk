@@ -1,3 +1,5 @@
+import {taskPool,serialSnapshots} from '../core/task-pool';
+import {phaseFor} from '../core/task-timing';
 import {assertOcrReviewed,protectChemistry} from '../core/source-fidelity';
 import {preserveFailure} from './diagnostics';
 import {z} from 'zod';
@@ -27,13 +29,14 @@ export async function organizeChemistry(p:Project,s:Settings,key:string,signal:A
  return next;
  }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});}
 }
-export type ChemCaller=(q:ChemQuestion,module:ChemModule,signal:AbortSignal)=>Promise<ChemResult>;
-export function chemistryCaller(s:Settings,key:string):ChemCaller{return async(q,module,signal)=>{
+export type ChemCaller=(q:ChemQuestion,module:ChemModule,signal:AbortSignal,status?:(message:string)=>void)=>Promise<ChemResult>;
+export function chemistryCaller(s:Settings,key:string):ChemCaller{return async(q,module,signal,status)=>{
  const images=q.imageMode==='vision'?q.images.map(i=>i.data):[];
  const prompt=chemInstructions[module]+'\n输入材料：'+JSON.stringify({stage:q.stage,number:q.number,kind:q.kind,stem:q.stem,options:q.options,answer:q.answer,figures:q.images.map(i=>({name:i.name,page:i.page,description:i.description})),imageMode:q.imageMode});
- return callAI(s,key,chemResultSchema,prompt,signal,undefined,system,images);
+ return callAI(s,key,chemResultSchema,prompt,signal,status,system,images);
 };}
-export async function generateChemistry(p:Project,ids:string[],modules:ChemModule[],signal:AbortSignal,save:(p:Project,message:string)=>Promise<void>,call:ChemCaller,resume=false){
+export async function generateChemistry(p:Project,ids:string[],modules:ChemModule[],signal:AbortSignal,saveSnapshot:(p:Project,message:string)=>Promise<void>,call:ChemCaller,resume=false){
+ const save=serialSnapshots(saveSnapshot);let stopped=false;
  if(p.subject!=='chemistry'||!p.chemistry)throw Error('请选择化学课件');
  const savedScope=resume&&!ids.length&&!modules.length;
  if(!savedScope&&(!ids.length||!modules.length||new Set(ids).size!==ids.length||new Set(modules).size!==modules.length||modules.some(m=>!chemModules.includes(m))))throw Error('请选择题目和有效模块');
@@ -47,28 +50,31 @@ export async function generateChemistry(p:Project,ids:string[],modules:ChemModul
  }));
  d.tasks=tasks;
  await save(next,'已建立化学生成任务');
- for(const task of tasks){
-  if(resume&&task.state==='complete')continue;
-  if(signal.aborted)break;
+ await taskPool(tasks.filter(t=>!resume||t.state!=='complete'),async task=>{
+  if(signal.aborted)return;
   const q=d.questions.find(q=>q.id===task.questionId)!;
-  task.state='running';task.error='';task.attempts++;
+  task.state='running';task.error='';task.attempts++;task.startedAt=Date.now();delete task.finishedAt;task.phase='generating';
+  const status=(message:string)=>{task.phase=phaseFor(message);void save(next,message).catch(()=>{});};
   await save(next,'正在生成第 '+q.number+' 题 · '+chemNames[task.module]);
+  if(signal.aborted||stopped){task.state='pending';return;}
   let result:ChemResult;
   try{
-   result=chemResultSchema.parse(await call(q,task.module,signal));
+   result=chemResultSchema.parse(await call(q,task.module,signal,status));
    if(signal.aborted)throw Error('已取消，本项结果未保存');
    if(task.module==='practice'&&result.status==='ok'&&!validChemPractice(result))throw new GenerationContentError('考点演练缺少独立题目、答案或解析，未保存');
   }catch(error){
    task.state=signal.aborted?'pending':'failed';task.error=error instanceof Error?error.message:String(error);
+   if(error instanceof ServiceStopError||!(error instanceof GenerationContentError||error instanceof z.ZodError))stopped=true;
+   task.finishedAt=Date.now();
    await save(next,'第 '+q.number+' 题 · '+chemNames[task.module]+'：'+task.error);
-   if(signal.aborted||error instanceof ServiceStopError||!(error instanceof GenerationContentError||error instanceof z.ZodError))break;
-   continue;
+   return;
   }
   q.versions.push({id:uid(),module:task.module,createdAt:new Date().toISOString(),origin:'ai',fingerprint:task.fingerprint,confirmed:false,result});
+  task.finishedAt=Date.now();task.phase='saving';
   task.state=result.status==='ok'?'complete':'failed';task.error=result.status==='ok'?'':'待核实：'+result.notices.join('；');
   // Persistence errors must stop here; never reclassify them as AI content errors.
   await save(next,'已保存第 '+q.number+' 题 · '+chemNames[task.module]+(task.error?'（待核实）':''));
- }
+ },()=>signal.aborted||stopped);
  await save(next,signal.aborted?'已取消，已完成结果保留':'化学生成结束，请核对讲义与未完成任务');
  return next;
 }

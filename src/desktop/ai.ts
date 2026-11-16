@@ -94,8 +94,15 @@ export async function generateGroup(p:Project,pid:string,selected:string[],s:Set
  if(rows.some(e=>!e||typeof e!=='object'||!qs.some(q=>q.id===e.questionId))||new Set(rows.map(e=>e?.questionId)).size!==rows.length)throw Error('解析返回未知、缺失或重复题目ID');
  const next=structuredClone(p);
  for(const q of qs){const t=next.job.tasks?.find(t=>t.kind==='analysis'&&t.questionIds.includes(q.id)&&t.passageId===pid);try{
-   const raw=rows.find(e=>e?.questionId===q.id);if(!raw)throw Error('AI遗漏本题解析');const parsed=analysisItem.safeParse(raw);if(!parsed.success)throw Error('本题缺少或写错字段：'+parsed.error.issues.map(x=>x.path.join('.')).join('、'));const e=parsed.data;if(!e.analysis.trim())throw Error('本题解析为空');const evidence=e.evidenceIds.map(id=>citation(catalog,id));
-   const target=next.questions.find(x=>x.id===q.id)!,previous=!q.stale?target.versions.find(v=>v.id===target.activeVersion):undefined,old=previous?.sourceText===teachingSource(next,pid)&&previous.exercise?.kind===q.type?previous:undefined;const v=explanationSchema.parse({id:uid(),createdAt:new Date().toISOString(),origin:'ai',sourceText:teachingSource(next,pid),answer:e.answer,analysis:e.analysis,evidence,practiceBlueprint:old?.practiceBlueprint,practice:old?.practice||'',practiceAnswer:old?.practiceAnswer||'',exercise:old?.exercise,conflict:!['writing','continuation'].includes(q.type)&&!q.answer.trim().toLowerCase().split(/\s*(?:\/|;|；)\s*/).includes(e.answer.trim().toLowerCase())});target.versions.push(v);target.activeVersion=v.id;target.stale=false;
+   const raw=rows.find(e=>e?.questionId===q.id);if(!raw)throw Error('AI遗漏本题解析');const parsed=analysisItem.safeParse(raw);if(!parsed.success)throw Error('本题缺少或写错字段：'+parsed.error.issues.map(x=>x.path.join('.')).join('、'));const e=parsed.data;if(!e.analysis.trim())throw Error('本题解析为空');
+   const hasReference=!!q.answer.trim();
+   // Reject the entire candidate before saving: replacing only its answer
+   // could leave reasoning for a different answer in the persisted analysis.
+   // Do not split slashes/semicolons: these can separate required subanswers.
+   if(hasReference&&e.answer.trim()!==q.answer.trim())throw new GenerationContentError('AI解析答案偏离参考答案；请完整保留输入referenceAnswer，并重新解释与该答案一致的依据，不重新解题或替换答案。本题未保存。');
+   if(!e.answer.trim())throw new GenerationContentError('AI建议答案为空，本题未保存');
+   const evidence=e.evidenceIds.map(id=>citation(catalog,id));
+   const target=next.questions.find(x=>x.id===q.id)!,previous=!q.stale?target.versions.find(v=>v.id===target.activeVersion):undefined,old=previous?.sourceText===teachingSource(next,pid)&&previous.exercise?.kind===q.type?previous:undefined;const v=explanationSchema.parse({id:uid(),createdAt:new Date().toISOString(),origin:'ai',sourceText:teachingSource(next,pid),answer:hasReference?q.answer:e.answer,analysis:hasReference?e.analysis:'AI建议，待教师核实（未提供参考答案）。\n'+e.analysis,evidence,practiceBlueprint:old?.practiceBlueprint,practice:old?.practice||'',practiceAnswer:old?.practiceAnswer||'',exercise:old?.exercise,conflict:false});target.versions.push(v);target.activeVersion=v.id;target.stale=false;
    if(t){t.state='complete';t.error='';delete next.job.errors[t.id];}
  }catch(error){if(!t)throw Error('第'+q.number+'题解析失败：'+(error instanceof Error?error.message:String(error)));t.state='failed';t.error='第'+q.number+'题：'+(error instanceof Error?error.message:String(error));next.job.errors[t.id]=t.error;}}
  return next;

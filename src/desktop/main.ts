@@ -1,3 +1,4 @@
+import {runParallelGeneration} from './parallel-generation';
 import { applyOcrReview, ocrReviewRequestSchema } from '../core/ocr-review';
 import { connectionSettings } from '../core/ai-settings';
 import {initializeDiagnostics} from './diagnostics';
@@ -172,13 +173,13 @@ app.whenReady().then(async () => {
         if(running.has(id))throw Error('已有任务正在处理，请等待或取消');
         let p=await store.load(id);if(!resume)p=planGeneration(p,ids,kind);else{archiveGenerationJob(p);const job=generationJobFor(p,kind);if(!job)throw Error('此项没有可继续的任务，请先生成');p.job=structuredClone(job);}
         const{s,key}=await credentials(),controller=new AbortController();running.set(id,controller);
-        try{const result=await runGeneration(p,controller.signal,generationExecutor(s,key,controller.signal,progress),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
+        try{const result=await runParallelGeneration(p,controller.signal,generationExecutor(s,key,controller.signal,progress),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
     }
     handle('generate',(id:string,ids:string[],kind:GenerationContent='analysis')=>{if(!taskKinds.includes(kind))throw Error('请选择一种具体内容，已取消整份讲义生成');return generate(id,ids,kind);});
     handle('generate-selected',async(id:string,ids:string[],kinds:GenerationContent[],resume=false)=>{
         if(running.has(id))throw Error('已有任务正在处理，请等待或取消');if(typeof resume!=='boolean')throw Error('生成方式无效');
         const p=planSelectedGeneration(await store.load(id),ids,kinds,resume),{s,key}=await credentials(),c=new AbortController();running.set(id,c);
-        try{const result=await runGeneration(p,c.signal,generationExecutor(s,key,c.signal,progress),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
+        try{const result=await runParallelGeneration(p,c.signal,generationExecutor(s,key,c.signal,progress),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
     });
     handle('resume-generation',(id:string,kind:GenerationContent)=>{if(!taskKinds.includes(kind))throw Error('请选择要继续的内容');return generate(id,[],kind,true);});
     handle('teaching',(id:string,pid:string,module?:TeachingModule)=>{
@@ -188,7 +189,7 @@ app.whenReady().then(async () => {
     });
     handle('special',async(id:string,pid:string,kind:SpecialKind,raw:unknown)=>{
         if(running.has(id))throw Error('已有任务正在处理');if(!specialKinds.includes(kind))throw Error('专项类型无效');const input=specialInputSchema.parse(raw);let p=planGeneration(await store.load(id),input.questionIds,'special');p.job.tasks=p.job.tasks!.filter(t=>t.passageId===pid&&t.specialKind===kind);if(!p.job.tasks.length)throw Error('此专项不适用于所选题目');
-        const{s,key}=await credentials(),c=new AbortController();running.set(id,c);try{return await runGeneration(p,c.signal,async p=>{const next=await generateSpecial(p,pid,kind,input,s,key,c.signal),result=next.passages.find(a=>a.id===pid)!.special!.versions.at(-1)!.result;if(!result.items.length)throw Error('专项未生成可用内容：'+result.notices.join('；'));return next;},p=>store.save(p),false,progress).then(result=>{notifyGeneration(result);return result;});}finally{running.delete(id);}
+        const{s,key}=await credentials(),c=new AbortController();running.set(id,c);try{return await runParallelGeneration(p,c.signal,async (p,_task,status)=>{const next=await generateSpecial(p,pid,kind,input,s,key,c.signal,status),result=next.passages.find(a=>a.id===pid)!.special!.versions.at(-1)!.result;if(!result.items.length)throw Error('专项未生成可用内容：'+result.notices.join('；'));return next;},p=>store.save(p),false,progress).then(result=>{notifyGeneration(result);return result;});}finally{running.delete(id);}
     });
     handle('review-chinese',async(id:string)=>{if(running.has(id))throw Error('任务处理中');const p=await store.load(id),{s,key}=await credentials(),c=new AbortController();running.set(id,c);try{const next=await reviewChinese(p,s,key,c.signal);if(c.signal.aborted)throw Error('校对已取消，保留旧报告');return store.save(next);}finally{running.delete(id);}});
     handle('generate-chinese',async(id:string,groups:string[],modules:ChineseModule[],resume=false,questions?:string[])=>{

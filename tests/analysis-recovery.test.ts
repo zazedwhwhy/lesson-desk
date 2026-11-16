@@ -7,7 +7,7 @@ import {z} from 'zod';
 const settings={provider:'deepseek' as const,model:'mock',baseUrl:'https://api.deepseek.com'};
 const response=(content:string)=>Response.json({choices:[{finish_reason:'stop',message:{content}}]});
 afterEach(()=>vi.unstubAllGlobals());
-function fixture(){const p=demoProject();p.questions=[p.questions[0],{...structuredClone(p.questions[0]),id:'q22',number:'22'}];for(const q of p.questions){q.versions=[];delete q.activeVersion;}return planGeneration(p,p.questions.map(q=>q.id),'analysis');}
+function fixture(){const p=demoProject();p.questions=[p.questions[0],{...structuredClone(p.questions[0]),id:'q22',number:'22'}];for(const q of p.questions){q.answer='B';q.versions=[];delete q.activeVersion;}return planGeneration(p,p.questions.map(q=>q.id),'analysis');}
 const row=(id:string)=>({questionId:id,answer:'B',analysis:'依据所提供的原文与参考答案分析。',evidenceIds:['C1']});
 it('批量回复漏证据字段时保存合格题，只修正缺字段题；解析不再依赖练习蓝图',async()=>{
  const p=fixture(),[q1,q2]=p.questions;const broken:any=row(q1.id);delete broken.evidenceIds;

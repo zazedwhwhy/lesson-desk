@@ -1,3 +1,4 @@
+import {taskTiming} from './task-timing';
 import {z} from 'zod';
 import {paginateBlocks,defaultSlideLayout,type SlideLayout,type SlideBlock} from './slide-layout';
 
@@ -12,7 +13,7 @@ export const chemResultSchema=z.object({status:z.enum(['ok','needs_review','insu
 export function validChemPractice(result:z.infer<typeof chemResultSchema>){return JSON.stringify(result.blocks.map(b=>b.label))===JSON.stringify(['题目','答案','解析与迁移']);}
 export const chemVersionSchema=z.object({id:text,module:z.enum(chemModules),createdAt:text,origin:z.enum(['ai','teacher']),fingerprint:text,confirmed:z.boolean(),result:chemResultSchema}).superRefine((v,ctx)=>{if(v.module==='practice'&&v.result.status==='ok'&&!validChemPractice(v.result))ctx.addIssue({code:'custom',message:'演练必须分别包含题目、答案、解析与迁移三个内容块；请重新生成结构不完整的演练'});});
 export const chemQuestionSchema=z.object({id:text,number:text,stage:z.enum(['junior','senior']).default('senior'),kind:z.enum(chemKinds).default('principle'),stem:z.string().default(''),options:z.array(z.string()).default([]),answer:z.string().default(''),sourceId:z.string().default(''),pages:z.array(z.number().int().positive()).default([]),images:z.array(chemImageSchema).max(12).default([]),imageMode:z.enum(['description','vision']).default('description'),confirmed:z.boolean().default(false),excluded:z.boolean().default(false),versions:z.array(chemVersionSchema).default([])});
-const task=z.object({id:text,questionId:text,module:z.enum(chemModules),fingerprint:text,state:z.enum(['pending','running','complete','failed']),error:z.string(),attempts:z.number().int().nonnegative()});
+const task=z.object({...taskTiming,id:text,questionId:text,module:z.enum(chemModules),fingerprint:text,state:z.enum(['pending','running','complete','failed']),error:z.string(),attempts:z.number().int().nonnegative()});
 export const chemistrySchema=z.object({version:z.literal(1).default(1),questions:z.array(chemQuestionSchema).default([]),history:z.array(z.object({at:text,questions:z.array(chemQuestionSchema)})).default([]),tasks:z.array(task).default([])}).superRefine((d,ctx)=>{
  const ids=new Set<string>(),numbers=new Set<string>();
  for(const q of d.questions){

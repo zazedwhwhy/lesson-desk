@@ -10,7 +10,8 @@ import{exerciseBlueprintSchema,exerciseText,exerciseAnswerText}from'../core/exer
 import{transferFromExercise}from'../core/learning';
 import{active,uid,type Project,type Settings}from'../core/model';
 import{specialKinds,type SpecialKind}from'../core/special';
-export function generationExecutor(settings:Settings,key:string,signal:AbortSignal,onRetry:(p:Project,message:string)=>void){return async function execute(p:Project,t:GenerationTask):Promise<Project>{
+export function generationExecutor(settings:Settings,key:string,signal:AbortSignal,outerRetry:(p:Project,message:string)=>void){return async function execute(p:Project,t:GenerationTask,status?:(message:string)=>void):Promise<Project>{
+ const onRetry=(value:Project,message:string)=>status?status(message):outerRetry(value,message);
  const a=p.passages.find(a=>a.id===t.passageId)!;
  if(t.kind==='translation'){const out=await callAI(settings,key,z.object({translation:z.string().min(1)}),translationInstruction+"\n"+JSON.stringify(a.paragraphs),signal,m=>onRetry(p,m));const target=p.passages.find(a2=>a2.id===a.id)!;target.translation=out.translation;target.translationSource=t.source;return p;}
  if(t.kind==='analysis'){
@@ -48,7 +49,7 @@ export function generationExecutor(settings:Settings,key:string,signal:AbortSign
   const opening=(n:number)=>text.match(new RegExp('Paragraph\\s*'+n+'\\s*[:：]\\s*([^\\n]+)','i'))?.[1]?.trim()||'';
   const input={material_complete:false,extra:'',opening1:opening(1),opening2:opening(2),questionIds:t.questionIds};
   if(t.specialKind==='continuation'&&old){if(!input.opening1&&text.includes(old.input.opening1))input.opening1=old.input.opening1;if(!input.opening2&&text.includes(old.input.opening2))input.opening2=old.input.opening2;}
-  const next=await generateSpecial(p,a.id,t.specialKind as SpecialKind,input,settings,key,signal),result=next.passages.find(a2=>a2.id===a.id)!.special!.versions.at(-1)!.result;
+  const next=await generateSpecial(p,a.id,t.specialKind as SpecialKind,input,settings,key,signal,m=>onRetry(p,m)),result=next.passages.find(a2=>a2.id===a.id)!.special!.versions.at(-1)!.result;
   if(!result.items.length)throw Error('专项未生成可用内容：'+result.notices.join('；'));return next;
  }
  return generateTeachingPart(p,a.id,t.kind,t.questionIds,settings,key,signal,m=>onRetry(p,m));
