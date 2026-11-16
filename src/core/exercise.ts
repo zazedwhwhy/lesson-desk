@@ -13,7 +13,12 @@ export const exerciseNames:Record<string,string>={reading:'阅读理解',seven:'
 const words=(s:string)=>s.toLowerCase().match(/[a-z]+(?:['’][a-z]+)*/g)||[];
 const english=(s:string,label:string,min=2)=>{if(/[\u3400-\u9fff]/u.test(s)||words(s).length<min)throw new GenerationContentError('同类练习的'+label+'必须是完整英文，不能用中文转述原题');};
 export function validateExercise(raw:unknown,kind:string,sourceTexts:string[]=[]):Exercise{
-  const e=exerciseSchema.parse(raw);if(e.kind!==kind)throw new GenerationContentError('同类练习题型与原题不一致');
+  const e=exerciseSchema.parse(raw);
+  // Canonicalize generated text formatting without changing teaching content.
+  for(const field of ['material','stem','answer','analysis','point'] as const)e[field]=e[field].replace(/\\r\\n|\\n/g,'\n');
+  const repeatedOptions='\n'+e.options.join('\n');
+  if(e.options.length&&e.material.trimEnd().endsWith(repeatedOptions))e.material=e.material.trimEnd().slice(0,-repeatedOptions.length).trimEnd();
+  if(e.kind!==kind)throw new GenerationContentError('同类练习题型与原题不一致');
   for(const value of[e.skill,e.sourceTopic,e.newTopic,e.answer,e.analysis,e.point])if(!value.trim())throw new GenerationContentError('同类练习缺少具体考点、主题、答案或解析');
   english(e.material,'新材料');english(e.stem,'题干');e.options.forEach(o=>english(o,'选项',1));
   if(/(?:above|original|previous)\s+(?:passage|text|question)|根据原文|上文/i.test(e.material+' '+e.stem))throw new GenerationContentError('同类练习必须自足，不能依赖原卷或上文');
@@ -31,6 +36,14 @@ export function validateExercise(raw:unknown,kind:string,sourceTexts:string[]=[]
   if(['cloze','grammar'].includes(kind)&&([...e.material.matchAll(/\[1\]/g)].length!==1||/\[\d+\]|_{2,}/.test(e.stem)||/\[(?!1\])\d+\]|_{2,}/.test(e.material)))throw new GenerationContentError('填空迁移练习必须仅在material中用一个[1]替代待填词；题干不能重复空位或用下划线另挖空');
   if(kind==='continuation'&&!/Paragraph\s*1\s*:/i.test(e.stem)||kind==='continuation'&&!/Paragraph\s*2\s*:/i.test(e.stem))throw new GenerationContentError('续写迁移练习缺少两段给定段首句');
   if(['writing','continuation'].includes(kind)&&/[\u3400-\u9fff]/u.test(e.answer))throw new GenerationContentError('写作迁移练习的参考文本必须使用英文');
+  if(['writing','continuation'].includes(kind)){
+    const wordRange=/(\d+)\s*[-–—]\s*(\d+)\s*words\b/i;
+    const range=e.stem.match(wordRange)||e.material.match(wordRange);
+    if(range){
+      const count=words(e.answer.replace(/Paragraph\s*[12]\s*:/gi,'')).length;
+      if(count<Number(range[1])||count>Number(range[2]))throw new GenerationContentError(`参考范文实际 ${count} 词，不符合题干 ${range[1]}–${range[2]} 词；包含给定段首句，不计Paragraph标题。请修正范文并重新核对字数。`);
+    }
+  }
   const normalized=words([e.material,e.stem,...e.options].join(' ')).join(' '),sources=sourceTexts.map(t=>words(t).join(' '));
   for(const source of sources){const tokens=source.split(' ');for(let i=0;i+14<=tokens.length;i++)if(normalized.includes(tokens.slice(i,i+14).join(' ')))throw new GenerationContentError('同类练习连续照搬了原卷内容，请更换独立材料');}
   if(new Set(optionEntries(e.options).map(o=>o.text.toLowerCase().trim())).size!==e.options.length)throw new GenerationContentError('同类练习包含重复选项');

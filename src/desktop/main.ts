@@ -3,7 +3,8 @@ import { applyOcrReview, ocrReviewRequestSchema } from '../core/ocr-review';
 import {queueManualOcr,queueChemistryPdf} from '../core/manual-ocr';
 import {refreshChemistryFidelity} from '../core/chemistry-review';
 import {reviewChemistry} from './chemistry-review';
-import { connectionSettings } from '../core/ai-settings';
+import { SettingsStore } from './settings-store';
+import { initializeStableData } from './data-home';
 import {initializeDiagnostics} from './diagnostics';
 import {organizeChemistry,generateChemistry,chemistryCaller} from './chemistry';
 import {chemSlides,chemModules,type ChemModule} from '../core/chemistry';
@@ -41,22 +42,17 @@ import { reviseProject, issues, validateBundlePath } from '../core/logic';
 import { demoProject } from '../core/demo';
 let win: BrowserWindow, store: Store;
 const beta=app.getVersion().includes('-');
-if(beta&&!app.commandLine.hasSwitch('user-data-dir'))app.setPath('userData',path.join(app.getPath('appData'),'lesson-desk-beta'));
+const isolated=app.commandLine.hasSwitch('user-data-dir');
+// Copy Local State before Electron loads its encryption context at ready.
+if(!beta&&!isolated)initializeStableData(path.join(app.getPath('appData'),'lesson-desk-stable'),['lesson-desk-beta','lesson-desk'].map(name=>path.join(app.getPath('appData'),name)));
+if(!isolated)app.setPath('userData',path.join(app.getPath('appData'),beta?'lesson-desk-beta':'lesson-desk-stable'));
 const running = new Map<string, AbortController>();
 const notifications=new Set<Notification>();
-const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
-async function settings(): Promise<Settings & {
-    encryptedKey?: string;
-}> { try {
-    return JSON.parse(await fs.readFile(settingsFile(), 'utf8'));
-}
-catch (e: any) {
-    if (e.code === 'ENOENT')
-        return { ...defaultSettings };
-    throw e;
-} }
-async function credentials() { const s = await settings(); if (!s.encryptedKey)
-    throw Error('请先在设置中填写API Key'); return { s, key: safeStorage.decryptString(Buffer.from(s.encryptedKey, 'base64')) }; }
+const connections=new SettingsStore(path.join(app.getPath('userData'),'settings.json'),{
+ encrypt:text=>{if(!safeStorage.isEncryptionAvailable())throw Error('系统凭据加密不可用，未保存 Key');return safeStorage.encryptString(text).toString('base64');},
+ decrypt:text=>safeStorage.decryptString(Buffer.from(text,'base64')),
+});
+const credentials=()=>connections.credentials();
 function handle(name: string, fn: (...args: any[]) => any) { ipcMain.handle('desk:' + name, async (event, ...args) => { if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame)
     throw Error('无效操作来源'); return fn(...args); }); }
 const progress = (p: Project, message: string) => win.webContents.send('desk:progress', { project: p, message });
@@ -245,14 +241,12 @@ app.whenReady().then(async () => {
     handle('cancel', (id: string) => running.get(id)?.abort());
     handle('prompts',()=>promptBook.snapshot());
     handle('save-prompt',(id:string,value:unknown)=>savePrompt(id,value));
-    handle('settings', async () => { const s = await settings(); const { encryptedKey, ...clean } = s; return { ...clean, hasKey: !!encryptedKey }; });
-    handle('save-settings', async (s: Settings) => { const connection = connectionSettings(s); const previous = await settings(); const value: any = { ...connection,...generationCounts({...previous,...s}) }; if (s.key?.trim()) {
-        if (!safeStorage.isEncryptionAvailable())
-            throw Error('系统凭据加密不可用，未保存Key');
-        value.encryptedKey = safeStorage.encryptString(s.key.trim()).toString('base64');
-    }
-    else if (previous.provider === connection.provider && previous.baseUrl.trim().replace(/\/+$/, '') === connection.baseUrl)
-        value.encryptedKey = previous.encryptedKey; await fs.writeFile(settingsFile(), JSON.stringify(value)); return true; });
+    handle('settings',()=>connections.current());
+    handle('connections',()=>connections.list());
+    handle('save-settings',(s:Settings)=>connections.save(s));
+    handle('activate-connection',(id:string)=>connections.activate(id));
+    handle('delete-connection',(id:string)=>connections.remove(id));
+    handle('reveal-key',(id:string)=>connections.reveal(id));
     const templateStore=new TemplateStore(path.join(app.getPath('userData'),'ppt-templates'));
     handle('ppt-templates',()=>templateStore.list());
     handle('import-ppt-template',async()=>{

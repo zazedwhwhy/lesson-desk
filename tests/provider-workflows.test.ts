@@ -50,7 +50,7 @@ it.each(providers)('%s 语文整理保留来源，图片讲解进入实际请求
 
 it.each(providers)('%s 化学五模块共用协议，图示模式明确区分图片与文字', async provider => {
   const q = chemQuestionSchema.parse({ id: 'q', number: '1', stem: '检验 CO₂', answer: '澄清石灰水', confirmed: true, imageMode: 'vision', images: [{ id: 'i', name: '图示', data: 'data:image/png;base64,YQ==', description: '澄清石灰水', confirmed: true }] });
-  const fetch = mock(provider, { status: 'ok', notices: [], blocks: [{ label: '知识', text: '二氧化碳使澄清石灰水变浑浊。' }] });
+  const fetch = mock(provider, { status: 'ok', notices: [], blocks: [{ label: '知识', text: '二氧化碳使澄清石灰水变浑浊。' }], question:'检验气体。',answer:'通入石灰水。',analysis:'依据生成沉淀。' });
   const call = chemistryCaller(settings(provider), 'synthetic');
   for (const module of ['analysis', 'knowledge', 'method', 'experiment', 'practice'] as const) {
     expect((await call(q, module, signal())).status).toBe('ok');

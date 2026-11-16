@@ -1,5 +1,5 @@
 import {englishQuestionSourceId,missingOrganizationTargets,organizationNumber,organizationScopes,targetLabel,type OrganizationTarget} from '../core/organization-coverage';
-import {GenerationContentError} from '../core/errors';
+import {GenerationContentError,isContentError} from '../core/errors';
 import {ServiceStopError} from '../core/generation-model';
 import {uid,type Project} from '../core/model';
 
@@ -57,7 +57,7 @@ export async function organizeWithCoverage(p:Project,signal:AbortSignal,request:
     if(signal.aborted)throw Error('整理已取消，原课件保留');
     mergeMissing(next,candidate,missing);failure='';
    }catch(error){
-    if(signal.aborted)throw error;
+    if(signal.aborted||!(error instanceof ServiceStopError)&&!isContentError(error))throw error;
     failure=error instanceof Error?error.message:String(error);
     if(error instanceof ServiceStopError){stopped=true;break;}
    }

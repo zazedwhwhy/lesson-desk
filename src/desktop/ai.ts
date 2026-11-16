@@ -7,7 +7,7 @@ import {assertOcrReviewed,protectEnglish} from '../core/source-fidelity';
 import {preserveFailure} from './diagnostics';
 import {apiSystem as guard,analysisInstruction,organizeInstruction} from '../core/request-instructions';
 import {promptBook} from './prompt-store';
-import {GenerationContentError} from '../core/errors';
+import {GenerationContentError,isContentError} from '../core/errors';
 import{optionEntries}from'../core/options';
 import{attachSourceReferences}from'../core/source-references';
 import { createCitationCatalog,citation,citationParagraphs } from '../core/evidence';
@@ -83,7 +83,7 @@ export async function organize(p:Project,s:Settings,key:string,signal:AbortSigna
 }
 async function organizeEnglishPart(p: Project, s: Settings, key: string, signal: AbortSignal, targets?:OrganizationTarget[]) { const out = await callAI(s, key, organized, organizeInstruction+'\n材料：'+JSON.stringify({scope:targets?{targets,instruction:'只补齐这些题目或写作任务，保留完整关联原文；答案来源中的其他题号不属于本次整理范围'}:undefined,sourceBinding:'每题sourceId填写其所属paper来源id，不能用答案册id；同号但不同来源的题分别保留',sources:p.sources.map(s=>({id:s.id,name:s.name,role:s.role,blocks:s.blocks}))}), signal,()=>{},guard,[],32768); try{const ids = new Set<string>(); for (const a of out.passages) {
     if (ids.has(a.id))
-        throw Error('AI整理的材料ID重复');
+        throw new GenerationContentError('AI整理的材料ID重复');
     ids.add(a.id);
 } if(!out.questions.length)throw new GenerationContentError('AI未返回题目');
 const paperSources=p.sources.filter(source=>source.role==='paper');
@@ -91,7 +91,7 @@ const qids = new Set<string>(); for (const q of out.questions) {
     if(!q.sourceId&&paperSources.length===1)q.sourceId=paperSources[0].id;
     if(!q.sourceId||!paperSources.some(source=>source.id===q.sourceId))throw new GenerationContentError('题目缺少有效的试卷来源，改为按来源补齐');
     if (qids.has(q.id) || !ids.has(q.passageId))
-        throw Error('AI整理的题目关联无效');
+        throw new GenerationContentError('AI整理的题目关联无效');
     qids.add(q.id);
 } const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; protectEnglish(p,out,sourceFidelityIssues); const next=structuredClone(p); next.sourceFidelityIssues=sourceFidelityIssues; next.passages = out.passages.map(a => passageSchema.parse(a)); next.questions = out.questions.map(q => questionSchema.parse({ ...q, confirmed: false, excluded: false, stale: false, versions: [] })); return attachSourceReferences(next); }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});} }
 export async function generateGroup(p:Project,pid:string,selected:string[],s:Settings,key:string,signal:AbortSignal,onRetry:(message:string)=>void,_legacy?:boolean,feedback=''){
@@ -101,10 +101,10 @@ export async function generateGroup(p:Project,pid:string,selected:string[],s:Set
  // malformed answer cannot discard valid siblings in a JSON-mode response.
  const out=await callAI(s,key,analysisEnvelope,prompt,signal,onRetry,teachingSystem,[],8192,generated);
  const rows=out.explanations as Array<Record<string,unknown>|null>;
- if(rows.some(e=>!e||typeof e!=='object'||!qs.some(q=>q.id===e.questionId))||new Set(rows.map(e=>e?.questionId)).size!==rows.length)throw Error('解析返回未知、缺失或重复题目ID');
+ if(rows.some(e=>!e||typeof e!=='object'||!qs.some(q=>q.id===e.questionId))||new Set(rows.map(e=>e?.questionId)).size!==rows.length)throw new GenerationContentError('解析返回未知、缺失或重复题目ID');
  const next=structuredClone(p);
  for(const q of qs){const t=next.job.tasks?.find(t=>t.kind==='analysis'&&t.questionIds.includes(q.id)&&t.passageId===pid);try{
-   const raw=rows.find(e=>e?.questionId===q.id);if(!raw)throw Error('AI遗漏本题解析');const parsed=analysisItem.safeParse(raw);if(!parsed.success)throw Error('本题缺少或写错字段：'+parsed.error.issues.map(x=>x.path.join('.')).join('、'));const e=parsed.data;if(!e.analysis.trim())throw Error('本题解析为空');
+   const raw=rows.find(e=>e?.questionId===q.id);if(!raw)throw new GenerationContentError('AI遗漏本题解析');const parsed=analysisItem.safeParse(raw);if(!parsed.success)throw new GenerationContentError('本题缺少或写错字段：'+parsed.error.issues.map(x=>x.path.join('.')).join('、'));const e=parsed.data;if(!e.analysis.trim())throw new GenerationContentError('本题解析为空');
    const hasReference=!!q.answer.trim();
    // Reject the entire candidate before saving: replacing only its answer
    // could leave reasoning for a different answer in the persisted analysis.
@@ -114,6 +114,6 @@ export async function generateGroup(p:Project,pid:string,selected:string[],s:Set
    const evidence=e.evidenceIds.map(id=>citation(catalog,id));
    const target=next.questions.find(x=>x.id===q.id)!,previous=!q.stale?target.versions.find(v=>v.id===target.activeVersion):undefined,old=previous?.sourceText===teachingSource(next,pid)&&previous.exercise?.kind===q.type?previous:undefined;const v=explanationSchema.parse({id:uid(),createdAt:new Date().toISOString(),origin:'ai',sourceText:teachingSource(next,pid),answer:hasReference?q.answer:e.answer,analysis:hasReference?e.analysis:'AI建议，待教师核实（未提供参考答案）。\n'+e.analysis,evidence,practiceBlueprint:old?.practiceBlueprint,practice:old?.practice||'',practiceAnswer:old?.practiceAnswer||'',exercise:old?.exercise,conflict:false});target.versions.push(v);target.activeVersion=v.id;target.stale=false;
    if(t){t.state='complete';t.error='';delete next.job.errors[t.id];}
- }catch(error){if(!t)throw Error('第'+q.number+'题解析失败：'+(error instanceof Error?error.message:String(error)));t.state='failed';t.error='第'+q.number+'题：'+(error instanceof Error?error.message:String(error));next.job.errors[t.id]=t.error;}}
+ }catch(error){if(!isContentError(error))throw error;if(!t)throw new GenerationContentError('第'+q.number+'题解析失败：'+(error instanceof Error?error.message:String(error)));t.state='failed';t.error='第'+q.number+'题：'+(error instanceof Error?error.message:String(error));next.job.errors[t.id]=t.error;}}
  return next;
 }

@@ -24,8 +24,8 @@ async function organizeChemistryPart(p:Project,s:Settings,key:string,signal:Abor
  const numbers=new Set<string>();
  for(const q of out.questions){
   const source=p.sources.find(s=>s.id===q.sourceId&&s.role==='paper');
-  if(!source||numbers.has(q.number))throw Error('整理结果的来源或题号无效，原题目未替换');
-  if(q.pages.some(page=>!source.blocks.some(b=>b.page===page)))throw Error('整理结果页码不在来源中，原题目未替换');
+  if(!source||numbers.has(q.number))throw new GenerationContentError('整理结果的来源或题号无效，原题目未替换');
+  if(q.pages.some(page=>!source.blocks.some(b=>b.page===page)))throw new GenerationContentError('整理结果页码不在来源中，原题目未替换');
   numbers.add(q.number);
  }
  const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; protectChemistry(p,out,sourceFidelityIssues);
@@ -38,6 +38,12 @@ export type ChemCaller=(q:ChemQuestion,module:ChemModule,signal:AbortSignal,stat
 export function chemistryCaller(s:Settings,key:string):ChemCaller{return async(q,module,signal,status)=>{
  const images=q.imageMode==='vision'?q.images.map(i=>i.data):[];
  const prompt=chemInstructions[module]+'\n输入材料：'+JSON.stringify({stage:q.stage,number:q.number,kind:q.kind,stem:q.stem,options:q.options,answer:q.answer,figures:q.images.map(i=>({name:i.name,page:i.page,description:i.description})),imageMode:q.imageMode});
+ if(module==='practice'){
+  const text=chemResultSchema.shape.blocks.element.shape.text;
+  const schema=chemResultSchema.omit({blocks:true}).extend({question:text,answer:text,analysis:text});
+  const out=await callAI(s,key,schema,prompt,signal,status,system,images);
+  return {status:out.status,notices:out.notices,blocks:[{label:'题目',text:out.question},{label:'答案',text:out.answer},{label:'解析与迁移',text:out.analysis}]};
+ }
  return callAI(s,key,chemResultSchema,prompt,signal,status,system,images);
 };}
 export async function generateChemistry(p:Project,ids:string[],modules:ChemModule[],signal:AbortSignal,saveSnapshot:(p:Project,message:string)=>Promise<void>,call:ChemCaller,resume=false){

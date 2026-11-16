@@ -15,3 +15,9 @@ it.each(promptCatalog().map(e=>[e.id,e] as const))('%s编辑会实际用于API�
  const body=JSON.parse((fetch.mock.calls[0] as any)[1].body);expect(body.messages[0].content).toBe('自定义系统要求');expect(body.messages[1].content).toContain('自定义任务要求\n输入材料：{"source":"original"}');expect(body.messages[1].content).toContain('输出必须为json');
 });
 it('解析模板修改仍保留前置修正反馈',()=>{const b=new PromptBook(),entry=promptCatalog().find(e=>e.id==='analysis')!;b.overrides.analysis={instruction:'新要求',system:'教师'};expect(b.compose('上次失败：引用C999不存在\n'+entry.instruction+'\n输入：{}',entry.system).prompt).toBe('上次失败：引用C999不存在\n新要求\n输入：{}');});
+it.each(promptCatalog().map(e=>[e.id,e] as const))('%s保留模板之后的动态范围与重试约束',(_id,entry)=>{
+ const b=new PromptBook(),tail='\n本次只处理第3、4题；上次缺少第4题，请补全。\n输入：{"source":"原文"}',prompt=entry.instruction+tail;
+ expect(b.compose(prompt,entry.system).prompt).toBe(prompt);
+ b.overrides[entry.id]={instruction:'自定义要求',system:'自定义系统'};
+ expect(b.compose(prompt,entry.system).prompt).toBe('自定义要求'+tail);
+});

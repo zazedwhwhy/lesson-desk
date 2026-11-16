@@ -1,9 +1,10 @@
+import {GenerationContentError} from '../src/core/errors';
 import{it,expect}from'vitest';
 import{demoProject}from'../src/core/demo';
 import{planGeneration,runGeneration,ServiceStopError}from'../src/core/generation';
 it('某项内容错误即使含500也不阻断后续模块和文章，并逐项保存',async()=>{
  let p=demoProject();delete p.passages[0].learning;p.passages.push({...structuredClone(p.passages[0]),id:'second',title:'下一篇'});p.questions.push({...structuredClone(p.questions[0]),id:'next-q',passageId:'second',number:'24'});p=planGeneration(p,p.questions.map(q=>q.id),'lesson');const seen:string[]=[],saved:string[][]=[];
- p=await runGeneration(p,new AbortController().signal,async(p,t)=>{seen.push(t.id);if(t.kind==='sentences')throw Error('引用C500中的句法成分无效');return p;},async p=>{saved.push(p.job.tasks!.filter(t=>t.state==='complete').map(t=>t.id));});
+ p=await runGeneration(p,new AbortController().signal,async(p,t)=>{seen.push(t.id);if(t.kind==='sentences')throw new GenerationContentError('引用C500中的句法成分无效');return p;},async p=>{saved.push(p.job.tasks!.filter(t=>t.state==='complete').map(t=>t.id));});
  expect(p.job.tasks!.find(t=>t.kind==='sentences')?.state).toBe('failed');expect(p.job.tasks!.find(t=>t.kind==='imitation')?.state).toBe('complete');expect(seen).toHaveLength(p.job.tasks!.length);expect(saved.length).toBeGreaterThan(2);expect(p.job.state).toBe('partial');
  const complete=p.job.tasks!.filter(t=>t.state==='complete').map(t=>t.id);const retried:string[]=[];
  p=await runGeneration(p,new AbortController().signal,async(p,t)=>{retried.push(t.id);return p;},async()=>{},true);expect(retried).toHaveLength(2);expect(retried.some(id=>complete.includes(id))).toBe(false);expect(p.job.state).toBe('complete');expect(seen.some(id=>id.startsWith('second:imitation'))).toBe(true);

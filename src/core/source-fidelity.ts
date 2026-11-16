@@ -52,7 +52,7 @@ function numberedSource(sources:Source[],number:string){
  const body=(next?tail.slice(0,next.index):tail).split(/\n\s*(?:非?选择题部分|[一二三四五六七八九十]+[、．]\s*(?:非?选择题|阅读理解|写作))/)[0];
  return withoutScore(body.trim());
 }
-export function questionSource(sources:Source[],number:string){return numberedSource(sources,number)??sourceText(sources);}
+export function questionSource(sources:Source[],number:string){return numberedSource(sources,number);}
 type FidelityReport = NonNullable<Project['sourceFidelityIssues']>;
 export function fidelityChecker(report?:FidelityReport){
  const issue=(error:SourceFidelityError)=>{if(!report)throw error;report.push({location:error.location,expected:error.expected,received:error.received});};
@@ -64,12 +64,13 @@ export function fidelityChecker(report?:FidelityReport){
  };
  return {literal,issue};
 }
-export function protectEnglish(p:Project,out:{passages:{id:string;type:string;paragraphs:{id:string;text:string}[];pool:string}[];questions:{number:string;stem:string;options:string[];answer:string;type:string;passageId:string}[]},report?:FidelityReport){
+export function protectEnglish(p:Project,out:{passages:{id:string;type:string;paragraphs:{id:string;text:string}[];pool:string}[];questions:{number:string;stem:string;options:string[];answer:string;type:string;passageId:string;sourceId?:string}[]},report?:FidelityReport){
  const {literal,issue}=fidelityChecker(report);
  const paper=p.sources.filter(s=>s.role==='paper'),all=sourceText(paper),answers=sourceText(p.sources.filter(s=>s.role==='answer'));
  for(const a of out.passages){for(const b of a.paragraphs)b.text=literal(a.type==='listening'?sourceText(p.sources):all,b.text,a.id+'原文');if(a.pool)a.pool=literal(all,a.pool,a.id+'选项池');}
  for(const q of out.questions){
-  const blank=['seven','cloze','grammar'].includes(q.type),original=questionSource(paper,q.number);
+  const blank=['seven','cloze','grammar'].includes(q.type),original=blank?all:questionSource(q.sourceId?paper.filter(s=>s.id===q.sourceId):paper,q.number);
+  if(original===undefined){issue(new SourceFidelityError('第'+q.number+'题来源题号',q.number,'未找到明确题号'));continue;}
   if(blank){const number=q.number.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),marker=new RegExp('(?:^|[^\\d])'+number+'(?!\\d)'),passage=out.passages.find(a=>a.id===q.passageId)?.paragraphs.map(b=>b.text).join('\n')||'';if(!marker.test(passage)||q.stem.trim()&&!marker.test(q.stem))issue(new SourceFidelityError('第'+q.number+'题空号及原句',q.number,passage+'\n'+q.stem));}
   q.stem=literal(blank?all:original,q.stem,'第'+q.number+'题题干');q.options=q.options.map((o,i)=>literal(original,o,'第'+q.number+'题选项'+(i+1)));if(q.answer&&!['writing','continuation'].includes(q.type))literal(answers,q.answer,'第'+q.number+'题参考答案');
  }
@@ -96,5 +97,5 @@ export function protectChemistry(p:Project,out:{questions:{number:string;sourceI
 export function protectChinese(p:Project,out:{groups:{questions:{number:string;stem:string;options:string[];answer:string;answerSource:string;confirmed?:boolean}[]}[]},report?:FidelityReport){
  const {literal,issue}=fidelityChecker(report);
  const paper=p.sources.filter(s=>s.role==='paper'),answers=sourceText(p.sources.filter(s=>s.role==='answer'));
- for(const g of out.groups)for(const q of g.questions){const original=questionSource(paper,q.number);q.stem=literal(original,withoutNumber(q.stem,q.number),'第'+q.number+'题题干');q.options=q.options.map((o,i)=>literal(original,o,'第'+q.number+'题选项'+(i+1)));if(q.answer&&q.answerSource==='provided')q.answer=literal(answers,q.answer,'第'+q.number+'题原参考答案');q.confirmed=false;}
+ for(const g of out.groups)for(const q of g.questions){q.confirmed=false;const original=questionSource(paper,q.number);if(original===undefined){issue(new SourceFidelityError('第'+q.number+'题来源题号',q.number,'未找到明确题号'));continue;}q.stem=literal(original,withoutNumber(q.stem,q.number),'第'+q.number+'题题干');q.options=q.options.map((o,i)=>literal(original,o,'第'+q.number+'题选项'+(i+1)));if(q.answer&&q.answerSource==='provided')q.answer=literal(answers,q.answer,'第'+q.number+'题原参考答案');}
 }

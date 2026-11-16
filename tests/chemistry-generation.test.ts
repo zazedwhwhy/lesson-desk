@@ -19,3 +19,12 @@ it('继续使用上次精确任务范围，不把两题两模块扩成四项',as
 it('继续前题面变化或撤销核对会阻断，不能以新范围替换旧任务',async()=>{const p=await generateChemistry(project(),['q'],['analysis'],new AbortController().signal,async()=>{},async()=>{throw new GenerationContentError('测试失败');});p.chemistry!.questions[0].stem='改变了题目';const call=vi.fn();await expect(generateChemistry(p,[],[],new AbortController().signal,async()=>{},call,true)).rejects.toThrow(/变化/);expect(call).not.toHaveBeenCalled();});
 
 it('新生成范围替换任务清单，继续不会重试旧范围的失败任务',async()=>{let p=await generateChemistry(project(),['q'],['analysis'],new AbortController().signal,async()=>{},async()=>{throw new GenerationContentError('旧错误');});p=await generateChemistry(p,['q'],['knowledge'],new AbortController().signal,async()=>{},async()=>{throw new GenerationContentError('新错误');});expect(p.chemistry!.tasks.map(t=>t.module)).toEqual(['knowledge']);const call=vi.fn().mockResolvedValue(result);await generateChemistry(p,[],[],new AbortController().signal,async()=>{},call,true);expect(call).toHaveBeenCalledTimes(1);expect(call.mock.calls[0][1]).toBe('knowledge');});
+
+it('化学演练按固定字段绑定版式，不让模型自由命名题目答案标签',async()=>{
+ const wire={status:'ok',notices:[],question:'AI新编：写出检验步骤。',answer:'通入澄清石灰水。',analysis:'依据生成沉淀的反应。'};
+ const mock=vi.fn().mockResolvedValue(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(wire)}}]}));vi.stubGlobal('fetch',mock);
+ try{const out=await chemistryCaller({provider:'custom',model:'test',baseUrl:'https://example.test/v1'},'synthetic')(project().chemistry!.questions[0],'practice',new AbortController().signal);
+ expect(out.blocks).toEqual([{label:'题目',text:wire.question},{label:'答案',text:wire.answer},{label:'解析与迁移',text:wire.analysis}]);
+ expect(JSON.parse(mock.mock.calls[0][1].body).messages[1].content).toContain('不返回 blocks');
+ }finally{vi.unstubAllGlobals();}
+});

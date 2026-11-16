@@ -2,6 +2,15 @@ import {it,expect} from 'vitest';
 import {pdfReadingLines} from '../src/core/pdf-reading-lines';
 import {checkLiteral,assertOcrReviewed,protectEnglish,protectChemistry,protectChinese,reconcileOcrReview,sourceText} from '../src/core/source-fidelity';
 import {emptyProject} from '../src/core/model';
+it('题号未找到时不能借用其它题正文通过英中保真检查',()=>{
+ const p=emptyProject('原卷');p.sources=[{id:'s',name:'原卷',kind:'text',role:'paper',blocks:[{id:'b',text:'1. What is the answer?'}]}];
+ const report:NonNullable<typeof p.sourceFidelityIssues>=[];
+ protectEnglish(p,{passages:[],questions:[{number:'99',stem:'What is the answer?',options:[],answer:'',type:'reading',passageId:'p'}]},report);
+ expect(report.some(x=>x.location.includes('99题来源题号'))).toBe(true);
+ const zh:NonNullable<typeof p.sourceFidelityIssues>=[];
+ protectChinese(p,{groups:[{questions:[{number:'99',stem:'What is the answer?',options:[],answer:'',answerSource:'none'}]}]},zh);
+ expect(zh.some(x=>x.location.includes('99题来源题号'))).toBe(true);
+});
 
 it('整行跨过中线时不把空号分成第二栏，按行内x排序',()=>{
  const rows=[{text:'The first paragraph.',x:50,y:680,width:340},{text:'36 .',x:400,y:680,width:30},{text:'The next paragraph.',x:50,y:664,width:300},{text:'37 Virtual guides',x:360,y:664,width:150}];

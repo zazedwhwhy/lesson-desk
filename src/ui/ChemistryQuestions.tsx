@@ -1,3 +1,4 @@
+import {AutosaveTextarea} from './AutosaveTextarea';
 import React from 'react';
 import {uid,type Project} from '../core/model';
 import {chemQuestionSchema,chemKinds,chemKindNames,type Chemistry,type ChemQuestion} from '../core/chemistry';
@@ -5,15 +6,15 @@ import {chemQuestionIssues,splitChemQuestion,mergeChemQuestion} from '../core/ch
 import {SelectionBox} from './ReviewBatch';
 import {MathText} from './MathText';
 import {invoke} from './api';
-type Props={project:Project;busy:boolean;selected:string[];setSelected:(s:string[])=>void;edit:(fn:(d:Chemistry)=>void)=>Promise<unknown>;run:(fn:()=>Promise<unknown>)=>Promise<unknown>};
-export function ChemistryQuestions({project:p,busy,selected,setSelected,edit,run}:Props){
+type Props={onError:(message:string)=>void;project:Project;busy:boolean;selected:string[];setSelected:(s:string[])=>void;edit:(fn:(d:Chemistry)=>void)=>Promise<unknown>;run:(fn:()=>Promise<unknown>)=>Promise<unknown>};
+export function ChemistryQuestions({project:p,busy,selected,setSelected,edit,run,onError}:Props){
  const d=p.chemistry!;
- const update=(id:string,fn:(q:ChemQuestion)=>void)=>run(()=>edit(d=>{const q=d.questions.find(q=>q.id===id);if(!q)throw Error('题目已不存在');fn(q);}));
+ const update=(id:string,fn:(q:ChemQuestion)=>void)=>edit(d=>{const q=d.questions.find(q=>q.id===id);if(!q)throw Error('题目已不存在');fn(q);}).catch(e=>{onError(e instanceof Error?e.message:String(e));});
  const addImages=(id:string,images:ChemQuestion['images'])=>update(id,q=>{if(q.images.length+images.length>12)throw Error('每题最多12张图片');q.images.push(...images);q.confirmed=false;});
  return <>{!d.questions.length&&<p className="empty">上传材料后点击“整理试卷”，也可手工新增题目。</p>}{d.questions.map(q=><details className="chem-question" key={q.id} open><summary>第 {q.number} 题 · {q.confirmed?'已核对':'待核对'}{q.excluded?' · 已排除':''}</summary>
  <SelectionBox ids={[q.id]} selected={selected} setSelected={setSelected} disabled={busy} label={'选择第 '+q.number+' 题'}/>
  <fieldset disabled={busy}><div className="chem-fields"><label>题号<input key={q.number} defaultValue={q.number} onBlur={e=>{if(q.number!==e.target.value)void update(q.id,q=>{q.number=e.target.value;q.confirmed=false;});}}/></label><label>学段<select value={q.stage} onChange={e=>void update(q.id,q=>{q.stage=e.target.value as ChemQuestion['stage'];q.confirmed=false;})}><option value="junior">初中</option><option value="senior">高中</option></select></label><label>题型<select value={q.kind} onChange={e=>void update(q.id,q=>{q.kind=e.target.value as ChemQuestion['kind'];q.confirmed=false;})}>{chemKinds.map(k=><option key={k} value={k}>{chemKindNames[k]}</option>)}</select></label><label>来源<select value={q.sourceId} onChange={e=>void update(q.id,q=>{q.sourceId=e.target.value;q.confirmed=false;})}><option value="">手动录入</option>{p.sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label></div>
- {(['stem','options','answer'] as const).map((field,i)=>{const value=field==='options'?q.options.join('\n'):q[field];return <label key={field}>{['题干','选项（每行一项）','参考答案 / 评分参考（无则留空）'][i]}<textarea key={value} aria-label={['化学题干','化学选项','化学参考答案'][i]} defaultValue={value} onBlur={e=>{const text=e.target.value;if(text!==value)void update(q.id,q=>{if(field==='options')q.options=text.split('\n').filter(Boolean);else q[field]=text;q.confirmed=false;});}}/></label>;})}
+ {(['stem','options','answer'] as const).map((field,i)=>{const value=field==='options'?q.options.join('\n'):q[field];return <label key={field}>{['题干','选项（每行一项）','参考答案 / 评分参考（无则留空）'][i]}<AutosaveTextarea aria-label={['化学题干','化学选项','化学参考答案'][i]} value={value} onCommit={text=>update(q.id,q=>{if(field==='options')q.options=text.split('\n').filter(Boolean);else q[field]=text;q.confirmed=false;})}/></label>;})}
  <details><summary>公式预览与输入说明</summary><p>行内公式用 {'$...$'} 或 {'\\(...\\)'}，独立公式用 {'$$...$$'} 或 {'\\[...\\]'}。化学式示例：<code>{'$\\ce{SO4^2-}$'}</code>；反应式：<code>{'$\\ce{2H2 + O2 -> 2H2O}$'}</code>。保留普通文字和 Unicode 上下标。</p><MathText text={[q.stem,...q.options,q.answer].join('\n')}/></details>
  <details><summary>题图与图示说明 · {q.images.length} 张</summary><div className="actions"><button onClick={()=>void run(async()=>{const images=await invoke('chemistry-image',p.id);if(images)await addImages(q.id,images);})}>添加 PNG / JPG 题图</button><label>图像读取方式<select value={q.imageMode} onChange={e=>void update(q.id,q=>{q.imageMode=e.target.value as ChemQuestion['imageMode'];q.confirmed=false;})}><option value="description">教师核对的图示说明</option><option value="vision">发送原图给视觉模型</option></select></label></div>
  <p className="muted">{q.imageMode==='vision'?'生成时发送关联原图，需模型支持图像输入。':'生成使用图示说明，请说明装置连接、试剂、坐标与数据。'}</p>

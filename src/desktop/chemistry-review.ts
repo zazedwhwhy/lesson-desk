@@ -12,7 +12,7 @@ export async function reviewChemistry(p:Project,s:Settings,key:string,signal:Abo
  const result={coverage:'complete' as 'complete'|'partial',checkedQuestionIds:[] as string[],limitations:[] as string[],findings:[] as {questionId:string;message:string}[]};
  for(let start=0;start<questions.length;start+=3){
   const batch=questions.slice(start,start+3);onStatus(`化学校对：第 ${start+1}–${start+batch.length}/${questions.length} 项`);
-  const sources=p.sources.filter(source=>source.role==='answer'||batch.some(q=>q.sourceId===source.id)).map(source=>({id:source.id,name:source.name,role:source.role,blocks:source.role==='answer'?source.blocks:source.blocks.filter(b=>batch.some(q=>q.sourceId===source.id&&(!q.pages.length||b.page===undefined||q.pages.includes(b.page))))}));
+  const sources=p.sources.filter(source=>source.role==='answer'||batch.some(q=>q.sourceId===source.id)).map(source=>({id:source.id,name:source.name,kind:source.kind,role:source.role,blocks:source.role==='answer'?source.blocks:source.blocks.filter(b=>batch.some(q=>q.sourceId===source.id&&(!q.pages.length||b.page===undefined||q.pages.includes(b.page))))}));
   const out=await callAI(s,key,chemistryReviewSchema,chemistryReviewInstruction+'\n输入材料：'+JSON.stringify({sources,questions:batch.map(({versions,images,...q})=>({...q,images:images.map(({data,...image})=>({...image,hasImage:true}))}))}),signal,onStatus,chemistrySystem);
   const ids=new Set(batch.map(q=>q.id));
   if(out.checkedQuestionIds.some(id=>!ids.has(id))||new Set(out.checkedQuestionIds).size!==out.checkedQuestionIds.length||out.findings.some(f=>!ids.has(f.questionId)))throw Error('校对报告关联了不属于本批的题目，保留旧报告');

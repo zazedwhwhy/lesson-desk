@@ -1,3 +1,4 @@
+import {GenerationContentError,isContentError} from '../core/errors';
 import type {Project} from '../core/model';
 import type {GenerationTask} from '../core/generation-model';
 import {ServiceStopError} from '../core/generation-model';
@@ -61,7 +62,7 @@ export async function runParallelGeneration(project:Project,signal:AbortSignal,e
     const result=await execute(snapshot,structuredClone(t),status);
     if(signal.aborted){t=p.job.tasks!.find(x=>x.id===entry.id)!;t.state='pending';}
     else{p=mergeTaskResult(p,result,t);t=p.job.tasks!.find(x=>x.id===entry.id)!;const outcome=result.job.tasks?.find(x=>x.id===t.id);t.state=outcome?.state==='failed'?'failed':'complete';t.error=outcome?.error||'';if(result.job.stopReason)p.job.stopReason=result.job.stopReason;}
-   }catch(error){t=p.job.tasks!.find(x=>x.id===entry.id)!;t.state=signal.aborted?'pending':'failed';t.error=error instanceof Error?error.message:String(error);if(error instanceof ServiceStopError)p.job.stopReason=t.error;}
+   }catch(error){t=p.job.tasks!.find(x=>x.id===entry.id)!;t.state=signal.aborted?'pending':'failed';t.error=error instanceof Error?error.message:String(error);if(!isContentError(error))p.job.stopReason=t.error;}
    t.finishedAt=Date.now();t.phase='saving';
    p.job.done=p.job.tasks!.filter(x=>x.kind==='analysis'&&x.state==='complete').flatMap(x=>x.questionIds);
    await checkpoint(t.state==='complete'?'已保存：'+t.title:'本项未完成：'+t.title);

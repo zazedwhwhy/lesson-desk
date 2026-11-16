@@ -1,6 +1,6 @@
 {
   "name": "lesson-desk",
-  "version": "0.17.0-beta.11",
+  "version": "0.17.0",
   "private": true,
   "description": "英语、语文与化学试卷讲解工作台",
   "main": "dist-desktop/main.cjs",
@@ -40,10 +40,10 @@
     "vitest": "4.1.12"
   },
   "build": {
-    "appId": "top.rainhollow.lessondesk.beta",
-    "productName": "讲题工作台测试版",
+    "appId": "top.rainhollow.lessondesk",
+    "productName": "讲题工作台",
     "directories": {
-      "output": "release/0.17.0-beta.11"
+      "output": "release/0.17.0"
     },
     "files": [
       "dist/**",
@@ -59,14 +59,15 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "signExecutable": false,
+      "icon": "assets/app-icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
     },
-    "artifactName": "LessonDesk-0.17.0-beta.11-Setup.${ext}"
+    "artifactName": "LessonDesk-0.17.0-Setup.${ext}"
   },
   "license": "MIT",
   "engines": {

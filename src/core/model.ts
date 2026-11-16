@@ -30,6 +30,8 @@ export type Slide = {
     questionId?: string;
 };
 export type Settings = {
+    id?: string;
+    name?: string;
     provider: 'openai' | 'claude' | 'deepseek' | 'custom';
     model: string;
     baseUrl: string;

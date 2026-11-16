@@ -1,5 +1,5 @@
 import {translationInstruction,blueprintInstruction} from '../core/request-instructions';
-import {GenerationContentError} from '../core/errors';
+import {GenerationContentError,isContentError} from '../core/errors';
 import{z}from'zod';
 import{type GenerationTask,ServiceStopError}from'../core/generation-model';
 import{generateGroup,callAI}from'./ai';
@@ -19,7 +19,7 @@ export function generationExecutor(settings:Settings,key:string,signal:AbortSign
   let next:Project;
   try{next=await generateGroup(p,t.passageId,ids,settings,key,signal,m=>onRetry(p,m));}
   catch(error){
-   if(signal.aborted||error instanceof ServiceStopError)throw error;
+   if(signal.aborted||!isContentError(error))throw error;
    next=structuredClone(p);
    for(const b of batch){const failed=next.job.tasks!.find(x=>x.id===b.id)!;failed.state='failed';failed.error=error instanceof Error?error.message:String(error);next.job.errors[b.id]=failed.error;}
   }
@@ -27,13 +27,13 @@ export function generationExecutor(settings:Settings,key:string,signal:AbortSign
   let repaired=next;for(const failed of batch.filter(b=>next.job.tasks!.find(x=>x.id===b.id)!.state==='failed')){
    onRetry(repaired,failed.title+'校验失败，AI正在单题修正（1/1）');
    try{repaired=await generateGroup(repaired,t.passageId,failed.questionIds,settings,key,signal,m=>onRetry(repaired,m),false,repaired.job.tasks!.find(x=>x.id===failed.id)!.error);}
-   catch(error){const task=repaired.job.tasks!.find(x=>x.id===failed.id)!;if(signal.aborted){task.state='pending';task.error='';delete repaired.job.errors[task.id];break;}task.state='failed';task.error=error instanceof Error?error.message:String(error);repaired.job.errors[task.id]=task.error;if(error instanceof ServiceStopError){repaired.job.stopReason=task.error;break;}}
+   catch(error){const task=repaired.job.tasks!.find(x=>x.id===failed.id)!;if(signal.aborted){task.state='pending';task.error='';delete repaired.job.errors[task.id];break;}task.state='failed';task.error=error instanceof Error?error.message:String(error);repaired.job.errors[task.id]=task.error;if(!isContentError(error)){repaired.job.stopReason=task.error;break;}}
   }return repaired;
  }
  if(t.kind==='practice'){
   const q=p.questions.find(q=>q.id===t.questionIds[0])!,e=active(q);
   let blueprint=!q.stale&&e?.sourceText===t.source?e?.practiceBlueprint:undefined;
-  if(!blueprint){blueprint=await callAI(settings,key,exerciseBlueprintSchema,blueprintInstruction+"\n"+JSON.stringify({type:q.type,stem:q.stem,options:q.options,referenceAnswer:q.answer,passage:a.paragraphs}),signal,m=>onRetry(p,m));if(blueprint.kind!==q.type)throw Error('同类练习蓝图题型不一致');}
+  if(!blueprint){blueprint=await callAI(settings,key,exerciseBlueprintSchema,blueprintInstruction+"\n"+JSON.stringify({type:q.type,stem:q.stem,options:q.options,referenceAnswer:q.answer,passage:a.paragraphs}),signal,m=>onRetry(p,m));if(blueprint.kind!==q.type)throw new GenerationContentError('同类练习蓝图题型不一致');}
   const sourceTexts=[...a.paragraphs.map(b=>b.text),a.pool,q.stem,...q.options];let feedback='';
   for(let attempt=0;attempt<2;attempt++)try{
    const items=await generateIndependentExercises([{id:q.id,blueprint}],settings,key,signal,sourceTexts,m=>onRetry(p,m),feedback,p.questions.findIndex(q2=>q2.id===q.id)),exercise=items[0].exercise;
@@ -50,7 +50,7 @@ export function generationExecutor(settings:Settings,key:string,signal:AbortSign
   const input={material_complete:false,extra:'',opening1:opening(1),opening2:opening(2),questionIds:t.questionIds};
   if(t.specialKind==='continuation'&&old){if(!input.opening1&&text.includes(old.input.opening1))input.opening1=old.input.opening1;if(!input.opening2&&text.includes(old.input.opening2))input.opening2=old.input.opening2;}
   const next=await generateSpecial(p,a.id,t.specialKind as SpecialKind,input,settings,key,signal,m=>onRetry(p,m)),result=next.passages.find(a2=>a2.id===a.id)!.special!.versions.at(-1)!.result;
-  if(!result.items.length)throw Error('专项未生成可用内容：'+result.notices.join('；'));return next;
+  if(!result.items.length)throw new GenerationContentError('专项未生成可用内容：'+result.notices.join('；'));return next;
  }
  return generateTeachingPart(p,a.id,t.kind,t.questionIds,settings,key,signal,m=>onRetry(p,m));
 };}

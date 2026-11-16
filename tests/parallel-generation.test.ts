@@ -7,6 +7,11 @@ import {taskPool,serialSnapshots} from '../src/core/task-pool';
 import {emptyProject} from '../src/core/model';
 import {chemQuestionSchema} from '../src/core/chemistry';
 import {generateChemistry} from '../src/desktop/chemistry';
+it('未知程序异常停止派发排队任务，保留已完成内容和具体错误',async()=>{
+ let p=demoProject();delete p.passages[0].learning;p=planSelectedGeneration(p,[p.questions[0].id],['translation','sentences','structure','lexicon','imitation']);let calls=0;
+ const out=await runParallelGeneration(p,new AbortController().signal,async()=>{calls++;throw new TypeError('内部状态损坏');},async()=>{});
+ expect(calls).toBeLessThanOrEqual(3);expect(out.job.stopReason).toBe('内部状态损坏');expect(out.job.tasks!.some(t=>t.state==='pending')).toBe(true);
+});
 it('同篇三个模块同时执行，乱序完成后各模块结果均保留且逐项保存',async()=>{
  let p=demoProject();delete p.passages[0].learning;
  p=planSelectedGeneration(p,[p.questions[0].id],['translation','structure','lexicon']);

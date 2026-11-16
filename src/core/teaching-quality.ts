@@ -10,7 +10,7 @@ export const structureGenerationSchema=teachingCoreSchema.shape.structure.extend
  questionLinks:z.array(z.object({questionId:specific,citationIds,focus:specific,method:specific}))
 });
 export const lexiconGenerationSchema=z.array(teachingCoreSchema.shape.lexicon.element.extend({
- sourceForm:specific,partOfSpeech:specific,usageNote:specific,exampleTranslation:specific
+ sourceForm:specific,partOfSpeech:specific,usageNote:specific,exampleTranslation:specific.describe("Chinese translation of memoryExample, never the cited source sentence")
 })).min(1).max(20);
 
 type Catalog=ReturnType<typeof createCitationCatalog>;
