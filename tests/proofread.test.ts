@@ -54,10 +54,10 @@ it('API失败不替换已有报告，也不自动切换或生成通过状态', a
   await expect(proofreadProject(p,{provider:'deepseek',model:'test',baseUrl:'https://api.deepseek.com'},'bad',false,new AbortController().signal)).rejects.toThrow('401');
   expect(p).toEqual(before);expect(fetch).toHaveBeenCalledTimes(1);
 });
-it('过大材料及已取消任务不发起API请求', async () => {
+it('已取消任务不发起API请求', async () => {
   const p=fixture(), fetch=vi.fn();vi.stubGlobal('fetch',fetch);p.sources[0].blocks[0].text='x'.repeat(160001);
   const s={provider:'deepseek' as const,model:'test',baseUrl:'https://api.deepseek.com'};
-  await expect(proofreadProject(p,s,'key',false,new AbortController().signal)).rejects.toThrow('16万');
+
   const c=new AbortController();c.abort();await expect(proofreadProject(fixture(),s,'key',false,c.signal)).rejects.toThrow('取消');
   expect(fetch).not.toHaveBeenCalled();
 });

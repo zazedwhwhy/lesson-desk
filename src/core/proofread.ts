@@ -14,9 +14,10 @@ export const proofreadResultSchema = z.object({
     evidence: z.array(z.object({ sourceId: z.string(), blockId: z.string(), quote: z.string().min(1).max(2000) })).max(8)
   })).max(150)
 });
+export const mergedProofreadResultSchema=proofreadResultSchema.extend({findings:proofreadResultSchema.shape.findings.max(10000),limitations:proofreadResultSchema.shape.limitations.max(10000)});
 export const proofreadReportSchema = z.object({
   id: z.string(), createdAt: z.string(), provider: z.string(), model: z.string(),
-  includeExplanations: z.boolean(), inputSnapshot: z.string(), result: proofreadResultSchema
+  includeExplanations: z.boolean(), inputSnapshot: z.string(), result: mergedProofreadResultSchema
 });
 export type ProofreadResult = z.infer<typeof proofreadResultSchema>;
 export type IntegrityIssue = { id: string; code: string; severity: 'error' | 'warning'; message: string; questionId?: string; passageId?: string; sourceId?: string; blockId?: string };
@@ -143,7 +144,7 @@ export function checkIntegrity(p: Project): IntegrityIssue[] {
 }
 
 export function validateProofreadResult(p: Project, raw: unknown): ProofreadResult {
-  const result=proofreadResultSchema.parse(raw);
+  const result=mergedProofreadResultSchema.parse(raw);
   const qids=new Set(p.questions.map(q=>q.id)), sids=new Set(p.sources.map(s=>s.id)), pids=new Set(p.passages.map(a=>a.id));
   if(result.checkedQuestionIds.some(id=>!qids.has(id))||result.checkedSourceIds.some(id=>!sids.has(id)))throw Error('AI校对返回未知的题目或来源 ID，报告未保存');
   if(new Set(result.checkedQuestionIds).size!==result.checkedQuestionIds.length||new Set(result.checkedSourceIds).size!==result.checkedSourceIds.length)throw Error('AI校对覆盖范围含重复 ID，报告未保存');
