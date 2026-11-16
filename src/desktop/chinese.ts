@@ -1,3 +1,4 @@
+import {planChineseSections,missingChineseQuestions,reusableChineseGroups} from '../core/chinese-organization';
 import {taskPool,serialSnapshots} from '../core/task-pool';
 import {phaseFor} from '../core/task-timing';
 import {assertOcrReviewed,protectChinese,fidelityChecker} from '../core/source-fidelity';
@@ -9,10 +10,56 @@ import type {Project,Settings} from '../core/model';
 import {chineseSchema,chineseReviewSchema,chineseGroupSchema,chineseResultSchema,chineseChecks,chineseFingerprint,validateChineseResult,applicableChineseModules,chineseModuleNames,type ChineseModule} from '../core/chinese';
 import {ServiceStopError} from '../core/generation-model';
 import {chineseSystem,chineseOrganizeInstruction,chineseInstructions as instructions} from '../core/chinese-prompts';
-export async function organizeChinese(p:Project,s:Settings,key:string,signal:AbortSignal){
+export async function organizeChinese(p:Project,s:Settings,key:string,signal:AbortSignal,onStatus:(message:string)=>void=()=>{}){
+ assertOcrReviewed(p.sources);
+ const sections=planChineseSections(p);
+ if(!sections.length)throw Error('未找到可整理的试卷材料，原课件已保留');
+ const groups:NonNullable<Project['chinese']>['groups']=[],issues:string[]=[],fidelity:NonNullable<Project['sourceFidelityIssues']>=[];
+ let stopped=false;
+ for(let index=0;index<sections.length;index++){
+  if(signal.aborted)throw Error('整理已取消，原课件与已生成讲评保留');
+  const section=sections[index],reused=reusableChineseGroups(section,p.chinese?.groups||[]);
+  if(reused.length){groups.push(...reused);onStatus(`已保留 ${section.title} 的题目与讲评`);continue;}
+  const retainPrevious=()=>{
+   const previous=(p.chinese?.groups||[]).filter(g=>!groups.some(saved=>saved.id===g.id)&&g.questions.length&&g.questions.every(q=>section.numbers.includes(q.number.match(/^\d+/)?.[0]||q.number))&&g.materials.some(m=>m.sourceId===section.source.id));
+   groups.push(...structuredClone(previous));
+  };
+  if(stopped){issues.push(`${section.title}：服务中断，尚未整理；请稍后再次整理补齐。`);retainPrevious();continue;}
+  onStatus(`正在整理第 ${index+1}/${sections.length} 篇：${section.title}（题号 ${section.numbers.join('、')||'由材料识别'}）`);
+  const scope=structuredClone(p);scope.sources=[section.source,...p.sources.filter(s=>s.role!=='paper')];scope.chinese=chineseSchema.parse({});
+  let candidate:Project|undefined,error:unknown;
+  for(let attempt=0;attempt<2;attempt++){
+   try{
+    candidate=await organizeChineseSection(scope,s,key,signal,section.numbers,attempt>0);
+    const missing=missingChineseQuestions(section,candidate.chinese!.groups);
+    if(missing.length)throw Error(`遗漏第 ${missing.join('、')} 题`);
+    if(section.numbers.length&&candidate.chinese!.groups.some(g=>g.questions.some(q=>!section.numbers.includes(q.number.match(/^\d+/)?.[0]||q.number))))throw Error('返回了当前篇目范围之外的题号');
+    error=undefined;break;
+   }catch(e){error=e;if(signal.aborted)throw Error('整理已取消，原课件与已生成讲评保留');if(e instanceof ServiceStopError){stopped=true;break;}if(attempt===0)onStatus(`${section.title} 整理不完整，正在单独重试这一篇…`);}
+  }
+  if(error){
+   issues.push(`${section.title}：${error instanceof Error?error.message:String(error)}；再次整理可补齐。`);
+   retainPrevious();continue;
+  }
+  for(const group of candidate!.chinese!.groups){
+   const prefix=section.id+':';group.id=prefix+group.id;
+   for(const m of group.materials)m.id=prefix+m.id;
+   for(const q of group.questions){q.id=prefix+q.id;q.materialIds=q.materialIds.map(id=>prefix+id);}
+   groups.push(group);
+  }
+  fidelity.push(...(candidate!.sourceFidelityIssues||[]));
+ }
+ if(!groups.length)throw Error('本次未整理出完整篇目，原课件已保留：'+issues.join('；'));
+ const next=structuredClone(p),old=p.chinese;
+ next.chinese=chineseSchema.parse({...old,groups,organizationIssues:issues,tasks:(old?.tasks||[]).filter(t=>groups.some(g=>g.id===t.groupId&&(!t.questionId||g.questions.some(q=>q.id===t.questionId)))),history:[...(old?.history||[]),...(old?.groups.length?[{at:new Date().toISOString(),groups:old.groups}]:[])]});
+ next.sourceFidelityIssues=[...(p.sourceFidelityIssues||[]),...fidelity];
+ onStatus(issues.length?`已整理/保留 ${groups.length} 个材料组，${issues.length} 个篇目待补齐，请查看整理报告`:`整卷整理完成：${groups.length} 个材料组，${groups.flatMap(g=>g.questions).length} 题`);
+ return {...next,chinese:next.chinese!};
+}
+async function organizeChineseSection(p:Project,s:Settings,key:string,signal:AbortSignal,numbers:string[]=[],retry=false){
  assertOcrReviewed(p.sources);
  const schema=z.object({groups:z.array(chineseGroupSchema.omit({versions:true}))});
- const out=await callAI(s,key,schema,chineseOrganizeInstruction+'\n输入：'+JSON.stringify(p.sources.map(x=>({id:x.id,role:x.role,name:x.name,blocks:x.blocks}))),signal,()=>{},chineseSystem,[],32768);
+ const out=await callAI(s,key,schema,chineseOrganizeInstruction+`\n本次只整理当前试卷片段，必须完整覆盖题号：${numbers.join('、')||'片段内所有题目'}；不要只返回第一篇或前几题。材料引用应覆盖完整原文，不节选。${retry?'上次结果遗漏或关联无效，请重新完整整理本片段。':''}`+'\n输入：'+JSON.stringify({scope:{questionNumbers:numbers,mode:'仅整理当前试卷片段，答案来源中的其他题号不属于本次范围'},sources:p.sources.map(x=>({id:x.id,role:x.role,name:x.name,blocks:x.blocks}))}),signal,()=>{},chineseSystem,[],32768);
  try{const data=chineseSchema.parse({groups:out.groups});
  if(!data.groups.length||!data.groups.some(g=>g.questions.length))throw Error('未整理出题目，原课件已保留');
  const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; const {literal}=fidelityChecker(sourceFidelityIssues);

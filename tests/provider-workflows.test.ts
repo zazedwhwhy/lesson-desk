@@ -42,8 +42,8 @@ it.each(providers)('%s 语文整理保留来源，图片讲解进入实际请求
   const m = result.chinese.groups[0].materials[0];
   m.image = 'data:image/png;base64,YQ=='; m.imageConfirmed = true;
   result.chinese.groups[0].questions[0].confirmed = true;
-  const fetch = mock(provider, { status: 'ok', notices: [], blocks: [{ label: '解析', text: '依据原文', evidence: [{ materialId: 'm', quote: '文字证据。' }] }] });
-  await generateChinese(result, ['g'], ['analysis'], settings(provider), 'synthetic', signal(), async () => {});
+  const fetch = mock(provider, { status: 'ok', notices: [], blocks: [{ label: '解析', text: '依据原文', evidence: [{ materialId: m.id, quote: '文字证据。' }] }] });
+  await generateChinese(result, [result.chinese.groups[0].id], ['analysis'], settings(provider), 'synthetic', signal(), async () => {});
   expect(result.chinese.groups[0].versions.at(-1)?.result.status).toBe('ok');
   expect(JSON.stringify(JSON.parse(fetch.mock.calls[0][1].body))).toContain('YQ==');
 });

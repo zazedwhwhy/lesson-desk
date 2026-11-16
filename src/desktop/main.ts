@@ -126,7 +126,7 @@ app.whenReady().then(async () => {
     handle('organize', async (id: string) => { if (running.has(id))
         throw Error('任务已在运行'); const p = await store.load(id); if (!p.sources.length)
         throw Error('请先上传试卷和答案，再点击整理试卷'); if(p.sources.some(s=>s.ocrPages?.length))throw Error('扫描页尚未识别，请先点击识别扫描页'); const { s, key } = await credentials(); const controller = new AbortController(); running.set(id, controller); try {
-        const result = await (p.subject==='chemistry'?organizeChemistry:p.subject==='chinese'?organizeChinese:organize)(p, s, key, controller.signal);
+        const result = p.subject==='chinese'?await organizeChinese(p,s,key,controller.signal,message=>progress(p,message)):await (p.subject==='chemistry'?organizeChemistry:organize)(p, s, key, controller.signal);
         if (controller.signal.aborted)
             throw Error('已取消');
         return await store.save(result);
