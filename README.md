@@ -1,178 +1,101 @@
-# 讲题工作台 · Lesson Desk
+# Lesson Desk
 
-讲题工作台（Lesson Desk）是一款面向教师的试卷讲评与错题讲解软件，目前支持高中英语、语文与中学化学，运行于 Windows。老师可以用它准备整卷讲评，也可以挑出几道需要重点讲解的错题，整理解析、补充练习，再编排成课堂课件。学生也能用它对照原文学习，梳理解题思路，复习自己不熟悉的内容。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-**正式版：0.17.2 · 测试版：0.17.2-beta.1** · Electron / React / TypeScript · [MIT License](LICENSE)
+Prepare exam explanations and classroom slides from your own papers. Lesson Desk is a Windows desktop app for teachers working with English, Chinese language and literature, and chemistry. Import a paper, check the questions and answers, generate the teaching material you need, then edit and arrange it for class.
 
-![PPT 模板与授课编排示例](docs/images/ppt-setup.png)
+[Download for Windows](https://github.com/zazedwhwhy/lesson-desk/releases/latest) · [Beta releases](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) · [Report an issue](https://github.com/zazedwhwhy/lesson-desk/issues) · [MIT license](LICENSE)
 
-## 可以做什么
+![Lesson and PowerPoint layout](docs/images/ppt-setup.png)
 
-备课从手头的试卷开始。软件支持导入 PDF、Word 文档，或直接粘贴试题与参考答案；扫描试卷可通过配置的在线识别服务处理。核对题目和材料后，老师按需要选择生成哪些讲解模块。已经生成的内容可以继续修改、保存并查看历史，未完成的任务也能接着处理。
+## Download
 
-讲英语试卷时，可以围绕题目整理答题依据，也能继续展开文章译文、长难句拆解和篇章分析。句法讲解会拆出句子主干与具体成分，篇章分析关注段落作用和行文逻辑。词汇手账保留单词在原文中的用法，结合语境义、搭配与例句复习；表达迁移则提供句式骨架和仿写任务，把阅读中遇到的表达用起来。
+| Edition | Version | What to choose |
+| --- | --- | --- |
+| Stable | [0.17.2](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2) | Regular lesson preparation; excludes the mistake notebook |
+| Beta | [0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) | Includes the experimental mistake notebook; marked as a prerelease |
 
-语文按材料和题目组织内容，覆盖阅读、文言文、诗歌、默写、语言运用与写作。老师可以结合原页图片核对材料，整理逐题讲评、文本脉络、语言品读或文言译注，也可以准备写作指导。多则材料能够关联到相应题目，讲义支持教师修订和确认。
+Download the `LessonDesk-<version>-Setup.exe` asset for Windows x64. Each release includes `SHA256SUMS.txt`.
 
-针对选出的错题，还可以围绕原题考点生成新材料、新语境下的练习，用于课堂巩固或课后复习。学生自主学习时，可以先独立作答，再展开参考答案和解析，对照原文检查自己的理解；词汇回忆模式、仿写任务和考点演练，也提供了继续练习的入口。
+Stable and Beta have separate installation names and data folders. On its first launch, Beta copies existing stable data; subsequent changes stay in their respective editions and do not sync. Removing the notebook from Stable does not delete existing notebook data.
 
-准备上课时，老师自行选择要讲的篇目、题目和模块，按所需顺序编排。内容既能直接放映，也能导出为可编辑的 PPT，两种方式使用相同的页序。长内容自动分页，较短的内容块尽量合页，练习与答案分开呈现，方便课堂提问。PPT 提供纸面教案、清爽蓝白和墨绿课堂三种风格，也支持上传现成的 `.pptx`、`.potx` 模板，沿用模板的背景、配色和字体。
+The app interface is currently in Chinese. This repository provides English and Chinese documentation.
 
-课件与修改记录保存在本机，也可导出课件包，留作后续讲评和复习使用。AI 生成功能需要配置自己的模型服务与 API Key；试卷识别、答案和生成的讲解仍需使用者核对。
+## Features
 
-## 0.17.2 正式版 / 0.17.2-beta.1 测试版
+- Import PDF and Word (`.docx`) files, or paste questions and reference answers. Recognize scanned pages with your configured AI service and review the transcription against the source.
+- Prepare English question explanations, translations, sentence analysis, passage analysis, contextual vocabulary and writing exercises.
+- Organize Chinese reading, classical Chinese, poetry, language exercises and writing tasks by source material and question.
+- Create chemistry explanations, knowledge summaries, problem-solving methods, experiment analysis and practice. Automatically associate flowcharts, apparatus diagrams and graphs with questions, retaining source images in lessons, presentations and PowerPoint exports.
+- Render LaTeX and chemical notation offline with MathJax and mhchem.
+- Edit generated content, retain teacher revisions and resume unfinished generation. Completed items remain saved after cancellation.
+- Arrange topics and modules in teaching order. Present in the app or export editable PowerPoint slides with the same page order, separate exercise and answer pages, and automatic pagination.
+- Choose paper, blue-and-white or dark-green slide styles, or import a `.pptx` / `.potx` template for its background, colors and fonts.
+- Save courseware locally and export backup packages. Beta also supports collecting questions and excerpts into a mistake notebook for review.
 
-正式版移除错题本入口、收录栏与后台接口，已有错题数据保留。需要错题本时使用名称中带 **Beta** 的测试版。
+## Get started
 
-Beta 保留修复后的错题本：收录栏移至页首正常布局，不再遮挡任务提示和取消按钮；设置、授课编排与放映不显示收录栏。管理窗口使用模态对话框，关闭和 Escape 都会检查未保存编辑。修复化学片段来源、讲义模块关联、整段收录混入界面段号的问题，并补充化学公式显示。
+1. Open a sample or create courseware and choose a subject.
+2. Open connection settings and enter your provider, base URL, model and API key. You can name, inspect and switch saved connections.
+3. Import the paper and reference answers. Check recognized text, question associations and answers against the originals.
+4. Select the teaching modules to generate, review the results and save your edits.
+5. Open the lesson/PPT arrangement screen, select and order the content, then present or export it.
 
-两版有独立安装名称和数据目录。Beta 首次启动复制正式版现有课件、连接及错题数据，随后各自保存，不双向同步。详见 [双版本交付说明](docs/双版本与错题本-0.17.2.md)。
+Sample browsing does not require an API key. AI features use your own account and may incur provider charges.
 
-开发：`npm run build` / `npm run package` 生成正式版；`npm run build:beta` / `npm run package:beta` 生成测试版。两套构建产物互不覆盖。
+## AI connections
 
-## 0.17.1 化学题图自动显示
+| Provider option | Default base URL | Protocol |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` | Responses |
+| Claude (Anthropic) | `https://api.anthropic.com/v1` | Messages |
+| DeepSeek | `https://api.deepseek.com` | Chat Completions |
+| OpenAI-compatible | Your provider's base URL | Chat Completions |
 
-整理化学 PDF / Word 试卷时，AI 自动识别流程图、实验装置、统计曲线等图示，程序保留原图并关联题目。题图直接显示在题面核对、教案讲解（包括只看讲解）、放映和 PPT 中；无需逐张附图或选择显示方式，公式继续使用 LaTeX。
+Enter a model available to your account. Scanned-page recognition and image-based tasks require image input support. For a proxy, select the protocol it implements and supply its base URL without `/responses`, `/messages` or `/chat/completions`.
 
-识图按页保存进度，重试复用已完成页面。自动题图随整题核对；少数未确定归属的图会保留并显示在待关联区。详见 [0.17.1 改动与验证](docs/化学自动题图-0.17.1.md)。
+The app sends the material needed for each AI task to the selected provider. It does not switch providers or models automatically after a failure. Check source permissions and provider settings before sending material.
 
-## 0.17.0 正式版
+## Local data and exports
 
-保留纸面教案界面，连接设置支持命名、多连接切换、查看已保存配置和按需显示密钥。返回入口位于页首，离开未保存编辑时提醒；设置草稿不改变正在使用的连接。
+Courseware, settings and templates are stored in the app's local user-data folder. API keys use Electron `safeStorage` encryption; courseware backups exclude API credentials.
 
-修复全部任务模板替换时丢失题号范围、数量与修正要求的问题，调整语文教学、英语词汇和新编练习提示，固定化学演练的题目、答案、解析结构。英语长卷校对最多三段并行，仍按原顺序合并。未知程序异常停止后续生成，原题找不到对应题号时明确列为待核实。
+Review OCR, answers and generated explanations before teaching. Unresolved source differences remain available for review. Legacy `.doc` files and audio transcription are not supported.
 
-本版整合 beta.2–11 的三科工作流、离线公式、OpenAI/Claude、OCR 核对、整卷补漏与三任务并行。首次启动把旧工作数据复制到独立的正式版目录，原数据保留。详见 [正式版改动与验证](docs/正式版-0.17.0.md) 和 [回退审计](docs/audits/2026-11-16-fallback-audit.md)。
+Custom PowerPoint templates contribute their layout, background, decoration and theme, not their sample text. Check exported files in your presentation software, especially when using complex templates or fonts that may not be installed.
 
-## 0.17.0-beta.11 化学上传流程
+## Build from source
 
-化学PDF上传后进入待识别状态，在上传试卷、上传答案旁直接显示“AI识别”按钮。即使PDF已有文字层，也须点击识别，再核对、整理试卷；不会把自动提取文字当作AI识别完成。旧版已上传材料也可直接点击AI识别，原有题目与讲评保留。
-
-## 0.17.0-beta.10 化学导入与校对修复
-
-修复考生注意序号误匹配试题、跨页页眉页脚混入比较范围，以及综合题子问选项重复导致的保真误报。差异报告默认折叠，化学可本地重新检查当前题目，或按三题一批进行 AI 对照原卷校对；报告明确文字检查与题图未核验范围。
-
-三学科的 PDF 材料均可按选定页码重新识别，即使已有文字层；识别前文字逐页保留，可在 OCR 核对中恢复。识别不自动替换已有题目、答案和讲评。化学附入原页默认使用当前题目的来源与页码。
-
-## 0.17.0-beta.9 英语与化学漏题补齐
-
-英语、化学整理后对照原材料检查题号覆盖；部分返回或输出截断时自动分段补齐，补发保留阅读材料、共用实验条件和跨页续文。仍未返回的题目会明确列在整理报告中。旧课件可点击“补齐遗漏题目（保留已有讲评）”，已有题目、核对状态、题图与讲评保持不变。英语同时检查行内空号及明确的应用文、读后续写任务，并按试卷来源区分同号题。
-
-## 0.17.0-beta.8 语文整卷补齐
-
-语文整理按阅读、默写、语言运用、作文等篇目分开发送，逐篇核对来源题号，避免只返回第一篇就被当作整卷完成。遗漏篇目会单独重试并显示报告。打开旧课件时可点击“补齐剩余篇目”，完整且原文未变化的已有篇目及其讲评保留，无需重新上传或扫描原卷。
-
-## 0.17.0-beta.7 长材料自动分段校对
-
-英语原卷校对不再因超过16万字符而拒绝发送。程序按题目、关联篇目与来源块拆分请求，逐段显示进度，再合并问题和覆盖范围；服务明确拒绝上下文长度时，会继续细分当前段重试。原材料不会被截断，校对不会修改原题和答案。特别长的单项文字会分片并明确提示跨片上下文仍需人工核实。取消、服务或结果校验失败时保留旧报告，不伪造整卷通过。
-
-## 0.17.0-beta.6 并行生成与参考答案
-
-英语、语文、化学的教学任务最多同时处理3项，当前任务及逐项列表显示生成、复核、重试阶段和本次耗时。各项完成后独立保存；同篇模块的结果分别合并，磁盘写入顺序执行。取消后保留已保存内容，继续时跳过已完成项；有依赖的原题解析与练习按先后顺序执行。并发上限针对任务，任务内部的生成和复核仍有先后关系。
-
-上传或教师确认的参考答案是原题讲评的依据，不要求AI重新作答替换答案。英语解析答案偏离参考答案时只修正该题，不保存矛盾候选；缺少答案时明确标注AI建议待核实。新编练习使用其自身的独立答案。
-
-## 0.17.0-beta.5 原题差异报告
-
-整理时发现题干、选项、答案或材料与来源不一致，不再因此中断整卷整理。英语、语文、化学均保存候选内容与差异清单，在备课页显示具体位置、来源文字及 AI 整理文字，供教师修改和核对。报告是本次整理的检查快照；候选题目不会被自动标记为已核对。
-
-## 0.17.0-beta.4 OCR 核对
-
-OCR 核对支持跨试卷与答案勾选页面、全选待核对页，并一次保存所选页的人工核对结果。未识别完成的页不能通过；有未保存校订的页需先保存。可在软件中显示原图，也可对照已打开的原 PDF 后确认，原图加载不再锁住所有核对按钮。
-
-原图加载显示进度，支持取消、超时后重试；校订一页不会清除其他页未保存的草稿。保留原始 OCR 转录与校订记录，批量通过表示教师已核对所选页，不是 AI 自动认定内容正确。
-
-## 0.17.0-beta.1 化学测试版
-
-新增图文化学题目、逐题讲评、知识梳理、题型方法、实验剖析和考点演练。保留 PDF 原页与题图，可按题目/模块生成和编排，共享课堂/PPT 页序；旧讲义和教师修改保留。测试版采用独立安装名称与数据目录。详见 [化学测试版使用说明](docs/化学测试版-0.17.0-beta.1.md)。
-
-## 0.16.1 更新
-
-优化英语与语文的整理备课页：材料核对、模块多选生成与导出入口按步骤组织，显示本次范围、所用服务及逐项进度。生成失败或取消后保留已保存内容，支持沿用上次范围继续未完成项。导出入口明确区分可编辑 PPT 与备份课件包，PPT 仍须先由教师选择内容并编排。讲课、阅读、放映、错题本与模板布局保持原有设计。
-
-详见 [备课界面优化](docs/备课界面优化-0.16.1.md)。
-
-## 0.16.0 更新
-
-新增本地错题本：课堂收录整题与内容片段，按班级和学生记录错因与复测，按考点、专题和复习日期筛选，编排复讲并导出教师版／学生版 PPT、PDF。支持图片快照、关联考点演练、归档恢复和旧数据兼容。学生版需教师确认题面、材料和图片不含答案。
-
-详见 [错题本使用说明](docs/错题本-0.16.0.md)。
-
-![错题本管理示例](docs/images/notebook-0.16.0.png)
-
-## 运行与打包
-
-主要支持 **Windows x64**。请安装 [Node.js 24 LTS](https://nodejs.org/)（包含 npm）和 [Git](https://git-scm.com/)。
+Use Node.js 24 LTS and Git on Windows. The commands below check out the source used for the current stable release.
 
 ```powershell
 git clone https://github.com/zazedwhwhy/lesson-desk.git
 cd lesson-desk
+git checkout v0.17.2
 npm ci
 npm run build
 npm start
 ```
 
-生成 Windows 安装包：
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Browser UI preview; desktop import, storage and AI require Electron |
+| `npm test` | Local automated tests using synthetic data and mocked requests |
+| `npm run check:public` | Check tracked content for private data and credentials |
+| `npm run build` / `npm run package` | Build / package Stable |
+| `npm run build:beta` / `npm run package:beta` | Build / package Beta |
 
-```powershell
-npm run package
-```
+Installers are written to `release/`. Stable and Beta build outputs are separate. The app uses Electron, React and TypeScript.
 
-构建结果在 `release/`。源码仓库不提交依赖目录、安装包及个人课件。`npm run dev` 只启动浏览器界面预览；文件导入、保存与 AI 等桌面能力请通过 `npm run build` 后的 `npm start` 使用。
+## Documentation and contributions
 
-## 第一次使用
+- [Recent changes](https://github.com/zazedwhwhy/lesson-desk/blob/feat/chemistry-beta-0.17/docs/近日改动汇总-0.17.2.md) (Chinese)
+- [Version history](docs/版本历史.md) (Chinese)
+- [Contributing](CONTRIBUTING.md)
+- [Development workflow](docs/开发与Git工作流.md) (Chinese)
 
-1. 打开预置示例，或新建课件并选择英语/语文/化学。
-2. 在“连接设置”填写服务地址、模型与自己的 API Key；示例浏览和本地测试不需要 API Key。
-3. 上传试卷与参考答案，对照原卷核对题目、材料关联和答案，再勾选所需模块开始生成。
-4. 核实生成内容，必要时保存教师修订版本。
-5. 进入“输出课件”或“编排授课 / PPT”，勾选内容、选择模板，再放映或导出。
+Report bugs with the app version, subject, steps to reproduce and any relevant error message. Remove API keys and personal or student information from attachments.
 
-AI 请求会把本次任务所需的材料发送给你配置的服务商，可能产生费用；联网生成前请确认材料的使用权限和服务商设置。应用没有内置可供公众使用的 API Key。
+## License
 
-连接设置支持以下协议，适用于扫描识别及英语、语文、化学的 AI 功能：
-
-| 服务商选项 | 默认基础地址 | API 协议 |
-| --- | --- | --- |
-| OpenAI | `https://api.openai.com/v1` | Responses |
-| Claude（Anthropic） | `https://api.anthropic.com/v1` | Messages |
-| DeepSeek | `https://api.deepseek.com` | Chat Completions |
-| OpenAI兼容接口 | 按服务商说明填写 | Chat Completions |
-
-模型名称填写账号实际可用的模型；第三方代理按其支持的协议选择对应选项，并填写代理的基础地址，不要附加 `/responses`、`/messages` 或 `/chat/completions`。扫描识别、语文图片及化学图片模式需要所选模型支持图片输入。程序不按模型名称猜测图片能力，也不会在失败时自动切换模型、服务商或协议。
-
-Claude 通过任务提示和 JSON 结构要求生成内容，并在本地严格验证结果；OpenAI 使用结构化输出并进行同样的本地验证。截断、拒绝、无效结构和服务错误不会写成成功内容。扫描中途失败时，已保存页保留，未完成页可重试。协议实现参照 [OpenAI Responses](https://platform.openai.com/docs/api-reference/responses/create) 和 [Claude Messages](https://platform.claude.com/docs/en/api/messages/create)；自动化验证使用模拟响应，不代表真实账号或所有模型均已实测。
-
-## 数据与边界
-
-课件、设置和模板保存在 Electron 的当前用户数据目录。API Key 通过 Electron `safeStorage` 加密，仍应保护好当前 Windows 账户和应用数据目录。课件包不包含 API 凭据。
-
-PDF 阅读顺序由版面估算，扫描识别、材料整理和 AI 讲义均需教师对照原件核实。缺失、冲突或过期内容不会自动视为已确认。旧版 `.doc`、音频转写暂不支持。
-
-自定义 PPT 读取母版/版式中的背景、装饰、主题与正文空间；模板示例文字不会进入课件。复杂效果、字体缺失和 PowerPoint 渲染差异请以实际打开结果为准。详见 [PPT 模板与紧凑分页](docs/PPT模板与紧凑分页-0.15.0.md) 和 [语文功能说明](docs/语文整卷功能-0.14.0.md)。
-
-## 开发与验证
-
-```powershell
-npm test
-npm run build
-npm run check:public
-```
-
-测试使用本地合成材料和模拟请求，不要求真实 API 凭据。既有本地测试与打包程序验证通过，不代表任意服务商、整卷识别或任意 PPT 模板都已完成端到端验收。
-
-GitHub Actions 在 `main` 推送和 Pull Request 时运行公开内容检查、测试及构建。具体协作方式见 [开发与 Git 工作流](docs/开发与Git工作流.md)；贡献要求见 [CONTRIBUTING](CONTRIBUTING.md)。
-
-```text
-src/core/       学科模型、校验、教学内容和共享分页
-src/desktop/    Electron、材料导入、AI 调用、存储和 PPT 导出
-src/ui/         React 界面
-scripts/        构建及本地验证脚本
-tests/          自动化测试
-assets/fonts/   字体及其许可证
-docs/           公开使用文档与开发指南
-```
-
-## 许可证与致谢
-
-本项目自行编写的源码采用 [MIT](LICENSE)。随项目分发的 Literata 与霞鹜文楷按 SIL Open Font License 1.1 保留原授权；第三方组件及用户上传材料不因源码开源而改换许可。来源及声明见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。
+Original source code is licensed under [MIT](LICENSE). Literata and LXGW WenKai retain their SIL Open Font License 1.1 terms. See [third-party notices](THIRD_PARTY_NOTICES.md) for bundled components. Uploaded materials retain their own licenses.
