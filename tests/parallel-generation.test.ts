@@ -43,8 +43,9 @@ it('任务池最多三项，取消后不启动排队任务且等待在途任务�
 it('化学同题四个模块三并发，逐项保存全部讲义且保存不存在重叠',async()=>{
  const p=emptyProject('化学','chemistry');p.chemistry!.questions=[chemQuestionSchema.parse({id:'q',number:'1',stem:'题目',answer:'参考',confirmed:true})];
  let active=0,peak=0,saving=0;const counts:number[]=[];
+ let release!:()=>void;const firstThree=new Promise<void>(resolve=>{release=resolve;});
  const out=await generateChemistry(p,['q'],['analysis','knowledge','method','experiment'],new AbortController().signal,async p=>{
   expect(++saving).toBe(1);await new Promise(r=>setTimeout(r,1));counts.push(p.chemistry!.questions[0].versions.length);saving--;
- },async()=>{peak=Math.max(peak,++active);await new Promise(r=>setTimeout(r,15));active--;return {status:'ok',notices:[],blocks:[{label:'讲解',text:'依据'}]};});
+ },async()=>{peak=Math.max(peak,++active);if(active===3)release();await firstThree;active--;return {status:'ok',notices:[],blocks:[{label:'讲解',text:'依据'}]};});
  expect(peak).toBe(3);expect(out.chemistry!.questions[0].versions).toHaveLength(4);expect(counts).toEqual(expect.arrayContaining([1,2,3,4]));
 });
