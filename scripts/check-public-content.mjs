@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 
 // Report file and line only; never echo a suspected credential into a CI log.
 const files=execFileSync('git',['ls-files','-z'],{encoding:'utf8'}).split('\0').filter(Boolean);
-const forbidden=/^(?:node_modules|\.tools|\.impeccable|\.superpowers|dist|dist-desktop|release|test-results|data|projects|sources)\/|(?:^|\/)(?:settings|auth|project|prompts)\.json$|(?:^|\/)\.env(?:\..*)?$|\.(?:pem|key|p12|pfx|pdf|docx|pptx|potx|lesson\.zip)$/i;
+const forbidden=/^(?:node_modules|\.tools|\.impeccable|\.superpowers|dist(?:-beta)?|dist-desktop(?:-beta)?|release|test-results|data|projects|sources)\/|(?:^|\/)(?:settings|auth|project|prompts)\.json$|(?:^|\/)\.env(?:\..*)?$|\.(?:pem|key|p12|pfx|pdf|docx|pptx|potx|lesson\.zip)$/i;
 const token=/\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\b/;
 const personalPath=/(?:[A-Za-z]:[/\\]Users[/\\]|xwechat_files[/\\]|wxid_[A-Za-z0-9]{6,})/;
 const privateKey=/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/;

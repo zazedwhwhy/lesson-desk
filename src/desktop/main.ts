@@ -1,3 +1,5 @@
+import {notebookBeta} from '../core/release-channel';
+declare const __NOTEBOOK_BETA__: boolean;
 import {recognizeChemistryFigures} from './chemistry-figures';
 import {runParallelGeneration} from './parallel-generation';
 import { applyOcrReview, ocrReviewRequestSchema } from '../core/ocr-review';
@@ -9,10 +11,6 @@ import { initializeStableData } from './data-home';
 import {initializeDiagnostics} from './diagnostics';
 import {organizeChemistry,generateChemistry,chemistryCaller} from './chemistry';
 import {chemSlides,chemModules,type ChemModule} from '../core/chemistry';
-import {exportNotebook} from './notebook-output';
-import {outputSchema} from '../core/notebook';
-import {notebookSources,notebookExcerptSource} from '../core/notebook-source';
-import {NotebookStore} from './notebook';
 import {TemplateStore} from './ppt-templates';
 import {organizeChinese,generateChinese,reviewChinese} from './chinese';
 import {chineseModules,type ChineseModule,chineseSlides} from '../core/chinese';
@@ -42,11 +40,11 @@ import { emptyProject, projectSchema, defaultSettings, type Settings, type Proje
 import { reviseProject, issues, validateBundlePath } from '../core/logic';
 import { demoProject } from '../core/demo';
 let win: BrowserWindow, store: Store;
-const beta=app.getVersion().includes('-');
+const beta=notebookBeta;
 const isolated=app.commandLine.hasSwitch('user-data-dir');
 // Copy Local State before Electron loads its encryption context at ready.
-if(!beta&&!isolated)initializeStableData(path.join(app.getPath('appData'),'lesson-desk-stable'),['lesson-desk-beta','lesson-desk'].map(name=>path.join(app.getPath('appData'),name)));
-if(!isolated)app.setPath('userData',path.join(app.getPath('appData'),beta?'lesson-desk-beta':'lesson-desk-stable'));
+if(!isolated)initializeStableData(path.join(app.getPath('appData'),beta?'lesson-desk-notebook-beta':'lesson-desk-stable'),(beta?['lesson-desk-stable','lesson-desk-beta','lesson-desk']:['lesson-desk-beta','lesson-desk']).map(name=>path.join(app.getPath('appData'),name)));
+if(!isolated)app.setPath('userData',path.join(app.getPath('appData'),beta?'lesson-desk-notebook-beta':'lesson-desk-stable'));
 const running = new Map<string, AbortController>();
 const notifications=new Set<Notification>();
 const connections=new SettingsStore(path.join(app.getPath('userData'),'settings.json'),{
@@ -79,13 +77,7 @@ app.whenReady().then(async () => {
     if (!(await store.list()).length&&firstLaunch)
         await store.save(demoProject());
     handle('example',()=>store.save(demoProject()));
-    const notebook=new NotebookStore(path.join(app.getPath('userData'),'notebook.json'));
-    handle('notebook-list',(all=false)=>notebook.list(all));
-    handle('notebook-update',(entry:unknown)=>notebook.update(entry));
-    handle('notebook-source',async(id:string)=>{const entry=(await notebook.list(true)).find(e=>e.id===id);if(!entry)throw Error('条目已不存在');if(!entry.sourceId&&!entry.sourceRef)throw Error('旧片段没有来源定位，请从原课件重新收录');const p=await store.load(entry.projectId,false);if(entry.kind==='excerpt')return notebookExcerptSource(p,entry);const source=notebookSources(p).find(q=>q.id===entry.sourceId);if(!source)throw Error('原题已不存在；保留当前快照');return source;});
-    handle('notebook-output',async(raw:unknown)=>{const o=outputSchema.parse(raw);const entries=await notebook.list();const {notebookDeck}=await import('../core/notebook');notebookDeck(entries,o);const target=await dialog.showSaveDialog(win,{defaultPath:'错题专题复习.'+o.format,filters:[{name:o.format.toUpperCase(),extensions:[o.format]}]});if(target.canceled||!target.filePath)return null;return exportNotebook(entries,o,target.filePath);});
-    handle('notebook-add',(entry:unknown)=>notebook.add(entry));
-    handle('notebook-remove',(id:string)=>notebook.remove(id));
+    if(__NOTEBOOK_BETA__){const {registerNotebook}=await import('./notebook-handlers');registerNotebook(handle,app.getPath('userData'),store,()=>win);}
     handle('list', () => store.list());
     handle('delete-project',async(id:string)=>{
         if(running.has(id))throw Error('这份课件正在处理，请等待任务结束或取消后再删除');
@@ -274,11 +266,11 @@ app.whenReady().then(async () => {
     handle('preview', async (id: string, sid: string) => { const p = await store.load(id); const source = p.sources.find(s => s.id === sid); if (!source?.asset)
         throw Error('没有可预览的原文件'); validateBundlePath(source.asset); const data = await fs.readFile(path.join(store.dir(id), source.asset)); return { kind: source.kind, data: Array.from(data) }; });
     handle('fullscreen', () => win.setFullScreen(!win.isFullScreen()));
-    win = new BrowserWindow({ width: 1440, height: 960, minWidth: 1000, minHeight: 650, show: false, backgroundColor: '#f3f4f6', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+    win = new BrowserWindow({ title:beta?'讲题工作台 Beta':'讲题工作台',width: 1440, height: 960, minWidth: 1000, minHeight: 650, show: false, backgroundColor: '#f3f4f6', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.on('focus',()=>win.flashFrame(false));
     win.webContents.on('will-navigate', (event) => event.preventDefault());
-    await win.loadFile(path.join(__dirname, '../dist/index.html'));
+    await win.loadFile(path.join(__dirname, beta?'../dist-beta/index.html':'../dist/index.html'));
     win.show();
 });
 app.on('window-all-closed', () => app.quit());

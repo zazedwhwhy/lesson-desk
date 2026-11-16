@@ -10,3 +10,13 @@ it('首次正式版复制测试版工作数据，原数据与已存在正式版�
  await fs.writeFile(path.join(stable,'projects','p','project.json'),'new teacher work');await initializeStableData(stable,[beta]);expect(await fs.readFile(path.join(stable,'projects','p','project.json'),'utf8')).toBe('new teacher work');
  }finally{await fs.rm(root,{recursive:true,force:true});}
 });
+it('首次Beta复制正式版错题本，后续各自保存且不回写正式版',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'desk-beta-copy-'));
+ try{
+  const stable=path.join(root,'stable'),beta=path.join(root,'notebook-beta');await fs.mkdir(path.join(stable,'projects'),{recursive:true});
+  await fs.writeFile(path.join(stable,'notebook.json'),'[{"id":"saved-note"}]');await fs.writeFile(path.join(stable,'Local State'),'synthetic-state');
+  initializeStableData(beta,[stable]);expect(await fs.readFile(path.join(beta,'notebook.json'),'utf8')).toBe('[{"id":"saved-note"}]');
+  await fs.writeFile(path.join(beta,'notebook.json'),'[{"id":"beta-edit"}]');initializeStableData(beta,[stable]);
+  expect(await fs.readFile(path.join(stable,'notebook.json'),'utf8')).toBe('[{"id":"saved-note"}]');expect(await fs.readFile(path.join(beta,'notebook.json'),'utf8')).toContain('beta-edit');
+ }finally{await fs.rm(root,{recursive:true,force:true});}
+});

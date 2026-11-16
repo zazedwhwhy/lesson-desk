@@ -8,8 +8,20 @@ export function assertNotebookPracticeComplete(p:Project,qid:string){const tasks
 
 export function notebookExcerptSource(p:Project,entry:NotebookEntry){
  const ref=entry.sourceRef;if(!ref)throw Error('旧片段没有来源定位，请从原课件重新收录');let context='';
- if(ref.questionId){const q=notebookSources(p).find(q=>q.id===ref.questionId);if(!q)throw Error('原题已不存在；保留收录快照');context=[q.material,q.studentText,q.answer].join('\n\n');}
+ if(ref.questionId&&ref.versionId&&p.subject==='chemistry'){
+  const q=p.chemistry?.questions.find(q=>q.id===ref.questionId);if(!q)throw Error('原题已不存在；保留收录快照');
+  const original=q.versions.find(v=>v.id===ref.versionId);if(!original)throw Error('原讲义版本已不存在，请重新定位');
+  const latest=q.versions.filter(v=>v.module===original.module).at(-1)!;
+  context=[q.stem,...q.options,q.answer,...latest.result.blocks.map(b=>b.label+'\n'+b.text)].join('\n\n');
+ }
+ else if(ref.questionId&&ref.versionId&&p.subject==='chinese'){
+  const g=p.chinese?.groups.find(g=>g.questions.some(q=>q.id===ref.questionId));if(!g)throw Error('原题已不存在；保留收录快照');
+  const original=g.versions.find(v=>v.id===ref.versionId);if(!original)throw Error('原讲义版本已不存在，请重新定位');
+  const latest=g.versions.filter(v=>v.module===original.module&&v.questionId===original.questionId).at(-1)!;
+  context=latest.result.blocks.map(b=>b.label+'\n'+b.text).join('\n\n');
+ }
+ else if(ref.questionId){const q=notebookSources(p).find(q=>q.id===ref.questionId);if(!q)throw Error('原题已不存在；保留收录快照');context=[q.material,q.studentText,q.answer].join('\n\n');}
  else if(p.subject==='chinese'){const g=p.chinese?.groups.find(g=>g.id===(ref.groupId||ref.passageId));if(!g)throw Error('原材料组已不存在；保留收录快照');const original=g.versions.find(v=>v.id===ref.versionId);if(ref.versionId&&!original)throw Error('原讲义版本已不存在，请重新定位');const v=original?g.versions.filter(v=>v.module===original.module&&v.questionId===original.questionId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0]:undefined;context=v?v.result.blocks.map(b=>b.label+'\n'+b.text).join('\n\n'):g.materials.map(m=>m.title+'\n'+m.text).join('\n\n');}
  else {const a=p.passages.find(a=>a.id===ref.passageId);if(!a)throw Error('原篇目已不存在；保留收录快照');const v=a.learning?.versions.find(v=>v.id===a.learning?.activeVersion);const module=ref.module;const strings=(value:unknown):string[]=>typeof value==='string'?[value]:Array.isArray(value)?value.flatMap(strings):value&&typeof value==='object'?Object.values(value).flatMap(strings):[];if(module&&['sentences','structure','lexicon','transfer','imitation'].includes(module)){if(!v||!(module in v.data))throw Error('当前讲义模块不可用');context=strings(v.data[module as keyof typeof v.data]).join('\n');}else context=a.paragraphs.map(b=>b.text).join('\n\n');}
- return {title:entry.title,text:entry.text,context,selectionFound:context.includes(entry.text),studentText:entry.text,material:'',answer:context,images:entry.images};
+ return {title:entry.title,text:entry.text,context,selectionFound:context.replace(/\s+/g,' ').includes(entry.text.replace(/\s+/g,' ').trim()),studentText:entry.text,material:'',answer:context,images:entry.images};
 }

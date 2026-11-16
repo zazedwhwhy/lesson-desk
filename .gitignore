@@ -2,6 +2,8 @@ node_modules/
 .tools/
 dist/
 dist-desktop/
+dist-beta/
+dist-desktop-beta/
 release/
 test-results/
 *.log

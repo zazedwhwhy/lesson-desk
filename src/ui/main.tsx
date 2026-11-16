@@ -6,7 +6,8 @@ import {PreparationPage} from './PreparationPage';
 import {SourceMaterials} from './SourceMaterials';
 import {OcrReview} from './OcrReview';
 import {ChemistryWorkspace} from './ChemistryWorkspace';
-import {Notebook} from './Notebook';
+import {notebookBeta} from '../core/release-channel';
+const Notebook=notebookBeta?React.lazy(()=>import('./Notebook').then(m=>({default:m.Notebook}))):null;
 import {defaultPptTemplate,type PptTemplate} from '../core/ppt-templates';
 import {LessonSlideView} from './LessonSlideView';
 import {ChineseWorkspace} from './ChineseWorkspace';
@@ -39,7 +40,7 @@ function App() {
     const [pptTemplate,setPptTemplate]=useState<PptTemplate>(defaultPptTemplate),[templatePending,setTemplatePending]=useState(false);
     const [p, setP] = useState<Project | null>(null), [list, setList] = useState<any[]>([]), [screen, setScreen] = useState('home'), [msg, setMsg] = useState(''), [busy, setBusy] = useState(false), [settings, setSettings] = useState<Settings>(defaultSettings), [index, setIndex] = useState(0), [mode, setMode] = useState('compare'), [font, setFont] = useState(24), [cn, setCn] = useState(false), [toc, setToc] = useState(true), [reveal, setReveal] = useState<string[]>([]), [slide, setSlide] = useState(0), [selected, setSelected] = useState<string[]>([]), [split, setSplit] = useState(50), [tab, setTab] = useState('解析'), [sourceId, setSourceId] = useState(''), [paste, setPaste] = useState(''), [newTitle,setNewTitle]=useState('英语试卷讲解'),[recallMode,setRecallMode]=useState(false);
     const [lessonSelection,setLessonSelection]=useState<LessonSelection>({passageIds:[],questionIds:[],modules:{}}),[presentationDeck,setPresentationDeck]=useState<LessonSlide[]>([]);
-    useEffect(()=>{notebookRoot.render(<Notebook project={p}/>);},[p]);
+
     const [subject,setSubject]=useState<'english'|'chinese'|'chemistry'>('english');
     const [generationKinds,setGenerationKinds]=useState<GenerationContent[]>(['analysis']);
     const [reviewSelected, setReviewSelected] = useState<string[]>([]), [reviewReport, setReviewReport] = useState<string[]>([]);
@@ -123,7 +124,7 @@ function App() {
 
 
     if (screen === 'show' && p && p.subject==='english') return <PresentationView deck={deck} template={pptTemplate} title={p.title} back={()=>setScreen('lesson-setup')} fullscreen={()=>void full()}/>;
-    return <>{p?.subject==='chemistry'&&screen!=='home'&&<div hidden={['settings','prompts'].includes(screen)}><ChemistryWorkspace key={p.id} screen={['settings','prompts'].includes(screen)?returnScreen:screen} onScreen={setScreen} template={pptTemplate} onTemplate={setPptTemplate} templatePending={templatePending} onTemplatePending={setTemplatePending} project={p} onProject={setP} onSave={save} home={()=>{setScreen('home');refresh();}} settings={goSettings} generationSettings={settings} message={msg}/></div>}{p?.subject==='chinese'&&screen!=='home'&&<div hidden={['settings','prompts'].includes(screen)}><ChineseWorkspace key={p.id} screen={['settings','prompts'].includes(screen)?returnScreen:screen} onScreen={setScreen} template={pptTemplate} onTemplate={setPptTemplate} templatePending={templatePending} onTemplatePending={setTemplatePending} project={p} onProject={setP} onSave={save} home={()=>{setScreen('home');refresh();}} settings={goSettings} generationSettings={settings} message={msg}/></div>}{(!['chinese','chemistry'].includes(p?.subject||'')||['home','settings','prompts'].includes(screen))&&<WorkspaceHeader title={p?.title} screen={screen} busy={busy} font={font} mode={mode} translated={cn} setFont={setFont} setMode={setMode} setTranslated={setCn} home={()=>{setScreen('home');refresh();}} prepare={()=>setScreen(screen==='review'?'teach':'review')} present={openLessonSetup} exportDeck={openLessonSetup} fullscreen={()=>void full()} answers={()=>{setTab('答案');setMode('analysis');}} settings={goSettings}/>}
+    return <>{Notebook&&['home','review','teach'].includes(screen)&&<React.Suspense fallback={null}><Notebook key={screen+':'+p?.id} project={screen==='home'?null:p} screen={screen}/></React.Suspense>}{p?.subject==='chemistry'&&screen!=='home'&&<div hidden={['settings','prompts'].includes(screen)}><ChemistryWorkspace key={p.id} screen={['settings','prompts'].includes(screen)?returnScreen:screen} onScreen={setScreen} template={pptTemplate} onTemplate={setPptTemplate} templatePending={templatePending} onTemplatePending={setTemplatePending} project={p} onProject={setP} onSave={save} home={()=>{setScreen('home');refresh();}} settings={goSettings} generationSettings={settings} message={msg}/></div>}{p?.subject==='chinese'&&screen!=='home'&&<div hidden={['settings','prompts'].includes(screen)}><ChineseWorkspace key={p.id} screen={['settings','prompts'].includes(screen)?returnScreen:screen} onScreen={setScreen} template={pptTemplate} onTemplate={setPptTemplate} templatePending={templatePending} onTemplatePending={setTemplatePending} project={p} onProject={setP} onSave={save} home={()=>{setScreen('home');refresh();}} settings={goSettings} generationSettings={settings} message={msg}/></div>}{(!['chinese','chemistry'].includes(p?.subject||'')||['home','settings','prompts'].includes(screen))&&<WorkspaceHeader title={p?.title} screen={screen} busy={busy} font={font} mode={mode} translated={cn} setFont={setFont} setMode={setMode} setTranslated={setCn} home={()=>{setScreen('home');refresh();}} prepare={()=>setScreen(screen==='review'?'teach':'review')} present={openLessonSetup} exportDeck={openLessonSetup} fullscreen={()=>void full()} answers={()=>{setTab('答案');setMode('analysis');}} settings={goSettings}/>}
     {msg && (!['chinese','chemistry'].includes(p?.subject||'')||['home','settings','prompts'].includes(screen)) && <div className="notice" role="status">{msg}<button aria-label="关闭提示" onClick={() => setMsg('')}><X size={16}/></button></div>}
     {screen === 'home' && <main className="home" data-screen-label="课件列表"><div className="page-title"><div><h1>我的课件</h1><p>选择已有课件，或导入一份新试卷。</p></div><div className="new-project"><label>课件名称<input aria-label="课件名称" value={newTitle} onChange={e=>setNewTitle(e.target.value)}/></label><label>学科<select aria-label="学科" value={subject} onChange={e=>{const v=e.target.value as 'english'|'chinese'|'chemistry';setSubject(v);setNewTitle(v==='chemistry'?'化学试卷讲解':v==='chinese'?'语文试卷讲解':'英语试卷讲解');}}><option value="english">英语</option><option value="chinese">语文</option><option value="chemistry">化学</option></select></label>{btn('新建课件',()=>run(async()=>{if(!newTitle.trim())throw Error('请填写课件名称');setP(await invoke('create',newTitle.trim(),subject));setSelected([]);setIndex(0);setScreen('review');}),Plus,'primary')}</div></div><div className="home-actions">{btn('导入课件包', () => run(async () => { const v = await invoke('import-bundle'); if (v) {
         setP(v);
@@ -143,7 +144,7 @@ function App() {
     {busy && !(screen==='review'&&p?.job.state==='running'&&p.job.mode==='selected') && <div className="busy" role="status">正在处理，完成的内容会逐组保存。{p && <button onClick={() => invoke('cancel', p.id)}>取消任务</button>}</div>}
     </>;
 }
-const notebookHost=document.createElement('div');document.body.append(notebookHost);const notebookRoot=createRoot(notebookHost);
+if(notebookBeta)document.title='讲题工作台 Beta';
 createRoot(document.getElementById('root')!).render(<App />);
 
 import './paper.css';

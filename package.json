@@ -1,16 +1,18 @@
 {
   "name": "lesson-desk",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "private": true,
   "description": "英语、语文与化学试卷讲解工作台",
   "main": "dist-desktop/main.cjs",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build && node scripts/build-desktop.mjs",
+    "build": "node scripts/build-channel.mjs stable",
     "start": "electron .",
     "test": "vitest run",
-    "package": "npm run build && electron-builder --win nsis --x64",
-    "check:public": "node scripts/check-public-content.mjs"
+    "package": "node scripts/package-release.mjs stable",
+    "check:public": "node scripts/check-public-content.mjs",
+    "build:beta": "node scripts/build-channel.mjs beta",
+    "package:beta": "node scripts/package-release.mjs beta"
   },
   "dependencies": {
     "@napi-rs/canvas": "1.1.0",
@@ -43,7 +45,7 @@
     "appId": "top.rainhollow.lessondesk",
     "productName": "讲题工作台",
     "directories": {
-      "output": "release/0.17.1"
+      "output": "release/0.17.2"
     },
     "files": [
       "dist/**",
@@ -67,7 +69,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
     },
-    "artifactName": "LessonDesk-0.17.1-Setup.${ext}"
+    "artifactName": "LessonDesk-0.17.2-Setup.${ext}"
   },
   "license": "MIT",
   "engines": {
