@@ -1,4 +1,6 @@
 import {taskPool,serialSnapshots} from '../core/task-pool';
+import {organizeWithCoverage,type OrganizationOptions} from './organization';
+import type {OrganizationTarget} from '../core/organization-coverage';
 import {phaseFor} from '../core/task-timing';
 import {assertOcrReviewed,protectChemistry} from '../core/source-fidelity';
 import {preserveFailure} from './diagnostics';
@@ -11,10 +13,13 @@ import {uid,type Project,type Settings} from '../core/model';
 
 import {chemistrySystem as system,chemInstructions,chemistryOrganizeInstruction} from '../core/chemistry-prompts';
 const organized=z.object({questions:z.array(z.object({number:z.string().min(1),kind:chemQuestionSchema.shape.kind,stem:z.string().min(1),options:z.array(z.string()),answer:z.string(),sourceId:z.string(),pages:z.array(z.number().int().positive())})).min(1)});
-export async function organizeChemistry(p:Project,s:Settings,key:string,signal:AbortSignal){
+export async function organizeChemistry(p:Project,s:Settings,key:string,signal:AbortSignal,options:OrganizationOptions={}){
  if(p.subject!=='chemistry'||!p.chemistry)throw Error('请选择化学课件');
  assertOcrReviewed(p.sources);
- const out=await callAI(s,key,organized,chemistryOrganizeInstruction+'\n输入材料：'+JSON.stringify(p.sources.map(({id,name,role,blocks})=>({id,name,role,blocks}))),signal,undefined,system,[],32768);
+ return organizeWithCoverage(p,signal,(part,targets)=>organizeChemistryPart(part,s,key,signal,targets),options);
+}
+async function organizeChemistryPart(p:Project,s:Settings,key:string,signal:AbortSignal,targets?:OrganizationTarget[]){
+ const out=await callAI(s,key,organized,chemistryOrganizeInstruction+'\n输入材料：'+JSON.stringify({scope:targets?{targets,instruction:'仅整理这些来源题号，保留全部小问和跨页续文；答案来源中的其他题号不属于本次范围'}:undefined,sources:p.sources.map(({id,name,role,blocks})=>({id,name,role,blocks}))}),signal,undefined,system,[],32768);
  try{if(signal.aborted)throw Error('已取消整理，原题目未替换');
  const numbers=new Set<string>();
  for(const q of out.questions){

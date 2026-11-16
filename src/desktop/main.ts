@@ -123,10 +123,10 @@ app.whenReady().then(async () => {
         p.sources.push(source);
     } return store.save(p); });
     handle('ocr',async(id:string)=>{if(running.has(id))throw Error('任务正在处理');const p=await store.load(id);const targets=p.sources.filter(s=>s.ocrPages?.length);if(!targets.length)throw Error('没有待识别扫描页');const {s,key}=await credentials();const c=new AbortController();running.set(id,c);try{for(const source of targets){if(!source.asset)throw Error('原PDF缺失，请重新上传');validateBundlePath(source.asset);await recognizeScan(path.join(store.dir(id),source.asset),source,s,key,c.signal,async(_,message)=>{p.updatedAt=new Date().toISOString();await store.save(p);progress(p,message);});}return await store.save(p);}finally{running.delete(id);}});
-    handle('organize', async (id: string) => { if (running.has(id))
+    handle('organize', async (id: string,recover=false) => { if (running.has(id))
         throw Error('任务已在运行'); const p = await store.load(id); if (!p.sources.length)
         throw Error('请先上传试卷和答案，再点击整理试卷'); if(p.sources.some(s=>s.ocrPages?.length))throw Error('扫描页尚未识别，请先点击识别扫描页'); const { s, key } = await credentials(); const controller = new AbortController(); running.set(id, controller); try {
-        const result = p.subject==='chinese'?await organizeChinese(p,s,key,controller.signal,message=>progress(p,message)):await (p.subject==='chemistry'?organizeChemistry:organize)(p, s, key, controller.signal);
+        const result = p.subject==='chinese'?await organizeChinese(p,s,key,controller.signal,message=>progress(p,message)):await (p.subject==='chemistry'?organizeChemistry:organize)(p, s, key, controller.signal,{recover:recover===true,onStatus:message=>progress(p,message)});
         if (controller.signal.aborted)
             throw Error('已取消');
         return await store.save(result);

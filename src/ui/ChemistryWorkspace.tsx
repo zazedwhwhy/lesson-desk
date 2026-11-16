@@ -1,4 +1,5 @@
 import {SourceFidelityReport} from './SourceFidelityReport';
+import {OrganizationNotice} from './OrganizationNotice';
 import React,{useState} from 'react';
 import {X} from 'lucide-react';
 import type {Project,Settings} from '../core/model';
@@ -37,6 +38,7 @@ export function ChemistryWorkspace({project:p,onProject,onSave,home,settings,mes
  if(screen==='show')return <PresentationView deck={deck} template={template} title={p.title} chinese back={()=>onScreen('lesson-setup')} fullscreen={()=>void run(fullscreen)}/>;
  return <><WorkspaceHeader title={p.title} screen={screen} busy={busy} font={font} mode={mode} translated={figures} translationLabel="附原题图示" setFont={setFont} setMode={setMode} setTranslated={setFigures} home={home} prepare={()=>onScreen(screen==='review'?'teach':'review')} present={setup} exportDeck={setup} fullscreen={()=>void run(fullscreen)} answers={()=>{setModule('answers');setMode('analysis');}} settings={settings}/>
  {(notice||(message!==dismissed&&message))&&<div className="notice" role="status">{notice||message}<button aria-label="关闭提示" onClick={()=>{setNotice('');setDismissed(message);}}><X size={16}/></button></div>}
+ <OrganizationNotice project={p} busy={busy} recover={()=>void run(()=>task('organize',true))}/>
  {screen==='review'&&<><SourceFidelityReport project={p}/><OcrReview key={p.id} project={p} onProject={onProject} disabled={busy}/><PreparationPage organize={<button className="primary" disabled={busy||!p.sources.length||p.sources.some(s=>!!s.ocrPages?.length)} onClick={()=>{if(d.questions.length&&!confirm('重新整理会保存当前题目与讲义到整理历史，再生成新题目。继续？'))return;void run(()=>task('organize'));}}>整理试卷</button>}
  materials={<SourceMaterials paste={paste} setPaste={setPaste} project={p} busy={busy} sourceId={sourceId} setSourceId={setSourceId} change={change} run={run} task={(name,_id,...args)=>run(()=>task(name,...args))}/>}
  questions={<section className="chem-review"><ReviewBatch questions={d.questions} selected={selected} setSelected={setSelected} busy={busy} hint="核对前请对照原卷与答案；空题干、未核对题图或缺少图示说明会跳过。恢复题目后需重新核对。" report={report} apply={action=>void run(async()=>{const r=applyChemReviewBatch(d,selected,action);await change(n=>{n.chemistry=r.data;});setReport([`已更新 ${r.changed} 题`,...r.skipped]);})}/><ChemistryQuestions project={p} busy={busy} selected={selected} setSelected={setSelected} edit={edit} run={run}/></section>}

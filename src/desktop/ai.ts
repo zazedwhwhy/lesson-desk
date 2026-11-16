@@ -1,4 +1,6 @@
 import { connectionSettings } from '../core/ai-settings';
+import {organizeWithCoverage,type OrganizationOptions} from './organization';
+import type {OrganizationTarget} from '../core/organization-coverage';
 import { providerRequest, providerText, requestPreview } from './ai-providers';
 import { restoreOptionalFields } from './openai-schema';
 import {assertOcrReviewed,protectEnglish} from '../core/source-fidelity';
@@ -14,7 +16,7 @@ import{ServiceStopError}from'../core/generation-model';
 import { teachingSource } from '../core/logic';
 import { z } from 'zod';
 import { passageSchema, questionSchema, explanationSchema, uid, type Project, type Settings } from '../core/model';
-const organized = z.object({ passages: z.array(z.object({ id: z.string(), title: z.string(), type: passageSchema.shape.type, paragraphs: z.array(z.object({ id: z.string(), text: z.string() })), pool: z.string() })), questions: z.array(z.object({ id: z.string(), number: z.string(), passageId: z.string(), type: questionSchema.shape.type, stem: z.string(), options: z.array(z.string()), answer: z.string() })) });
+const organized = z.object({ passages: z.array(z.object({ id: z.string(), title: z.string(), type: passageSchema.shape.type, paragraphs: z.array(z.object({ id: z.string(), text: z.string() })), pool: z.string() })), questions: z.array(z.object({ id: z.string(), number: z.string(), sourceId:z.string().optional(), passageId: z.string(), type: questionSchema.shape.type, stem: z.string(), options: z.array(z.string()), answer: z.string() })) });
 const analysisItem = z.object({questionId:z.string(),answer:z.string().min(1),analysis:z.string().min(1),evidenceIds:z.array(z.string())});
 const generated = z.object({explanations:z.array(analysisItem)});
 const analysisEnvelope = z.object({explanations:z.array(z.unknown())});
@@ -75,11 +77,19 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
         throw new GenerationContentError('AI内容结构不符合要求：' + result.error.issues.slice(0, 3).map(x => x.path.join('.') + ':' + x.message).join(';'));
     return result.data;
 } throw new GenerationContentError('重试次数已用尽'); }catch(error){return preserveFailure(error,{stage:'api-output',task:composed.id,model:settings.model,rawResponse});} }
-export async function organize(p: Project, s: Settings, key: string, signal: AbortSignal) { assertOcrReviewed(p.sources); const out = await callAI(s, key, organized, organizeInstruction+'\n材料：'+JSON.stringify(p.sources.map(s=>({id:s.id,name:s.name,role:s.role,blocks:s.blocks}))), signal,()=>{},guard,[],32768); try{const ids = new Set<string>(); for (const a of out.passages) {
+export async function organize(p:Project,s:Settings,key:string,signal:AbortSignal,options:OrganizationOptions={}){
+ assertOcrReviewed(p.sources);
+ return organizeWithCoverage(p,signal,(part,targets)=>organizeEnglishPart(part,s,key,signal,targets),options);
+}
+async function organizeEnglishPart(p: Project, s: Settings, key: string, signal: AbortSignal, targets?:OrganizationTarget[]) { const out = await callAI(s, key, organized, organizeInstruction+'\n材料：'+JSON.stringify({scope:targets?{targets,instruction:'只补齐这些题目或写作任务，保留完整关联原文；答案来源中的其他题号不属于本次整理范围'}:undefined,sourceBinding:'每题sourceId填写其所属paper来源id，不能用答案册id；同号但不同来源的题分别保留',sources:p.sources.map(s=>({id:s.id,name:s.name,role:s.role,blocks:s.blocks}))}), signal,()=>{},guard,[],32768); try{const ids = new Set<string>(); for (const a of out.passages) {
     if (ids.has(a.id))
         throw Error('AI整理的材料ID重复');
     ids.add(a.id);
-} const qids = new Set<string>(); for (const q of out.questions) {
+} if(!out.questions.length)throw new GenerationContentError('AI未返回题目');
+const paperSources=p.sources.filter(source=>source.role==='paper');
+const qids = new Set<string>(); for (const q of out.questions) {
+    if(!q.sourceId&&paperSources.length===1)q.sourceId=paperSources[0].id;
+    if(!q.sourceId||!paperSources.some(source=>source.id===q.sourceId))throw new GenerationContentError('题目缺少有效的试卷来源，改为按来源补齐');
     if (qids.has(q.id) || !ids.has(q.passageId))
         throw Error('AI整理的题目关联无效');
     qids.add(q.id);
