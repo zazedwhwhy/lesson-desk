@@ -1,3 +1,4 @@
+import { applyOcrReview, ocrReviewRequestSchema } from '../core/ocr-review';
 import { connectionSettings } from '../core/ai-settings';
 import {initializeDiagnostics} from './diagnostics';
 import {organizeChemistry,generateChemistry,chemistryCaller} from './chemistry';
@@ -102,6 +103,15 @@ app.whenReady().then(async () => {
     handle('create', (title: string,subject:'english'|'chinese'|'chemistry'='english') => {if(!['english','chinese','chemistry'].includes(subject))throw Error('学科无效');return store.save(emptyProject(title.trim() || '未命名课件',subject));});
     handle('save', async (raw: unknown) => { const p = projectSchema.parse(raw); if (running.has(p.id))
         throw Error('生成中不可修改，请先取消'); return store.save(reviseProject(await store.load(p.id), p)); });
+    handle('save-ocr-review', async (id: string, raw: unknown) => {
+        if (running.has(id)) throw Error('任务处理中，请等待或取消后再保存核对结果');
+        const request = ocrReviewRequestSchema.parse(raw);
+        running.set(id, new AbortController());
+        try {
+            const previous = await store.load(id);
+            return await store.save(reviseProject(previous, applyOcrReview(previous, request)));
+        } finally { running.delete(id); }
+    });
     handle('files', async (id: string, role: 'paper' | 'answer' | 'listening') => { if (running.has(id))
         throw Error('任务处理中'); if (!['paper', 'answer', 'listening'].includes(role))
         throw Error('材料类型无效'); const d = await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], filters: [{ name: 'PDF或Word文档', extensions: ['pdf', 'docx'] }] }); if (d.canceled)
