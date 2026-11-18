@@ -180,4 +180,4 @@ import './lesson-deck.css';
 
 import './preparation.css';
 
-import './swiss.css';
+import './library-workspace.css';
