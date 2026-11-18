@@ -21,7 +21,8 @@ it('空主干和泛泛拆解不能被当成完整句法分析',()=>{
 });
 it('生成解析不会额外生成讲义；完整讲义由独立任务负责',async()=>{
   const p=demoProject(),q=p.questions[0];delete p.passages[0].learning;
-  const output={translation:'译文',teaching:demoGeneratedTeaching(),explanations:[{questionId:q.id,answer:q.answer,analysis:'依据原文。',evidenceIds:[],practiceBlueprint:{kind:'reading',skill:demoExercise().skill,sourceTopic:'National parks'}}]};
+  const teaching=demoGeneratedTeaching();teaching.sentences[0].parts[0].text='not in the source';
+  const output={translation:'译文',teaching,explanations:[{questionId:q.id,answer:q.answer,analysis:'依据原文。',evidenceIds:[],practiceBlueprint:{kind:'reading',skill:demoExercise().skill,sourceTopic:'National parks'}}]};
   vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(output)}}]})).mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({items:[{id:q.id,exercise:demoExercise()}]})}}]})));
   const result=await generateGroup(p,p.passages[0].id,[q.id],s,'test-key',new AbortController().signal,()=>{});
   expect(result.passages[0].learning).toBeUndefined();expect(result.questions[0].versions.at(-1)?.analysis).toBe('依据原文。');expect(fetch).toHaveBeenCalledTimes(1);
@@ -32,11 +33,4 @@ it('应用文解析不编造精读模块，也不携带旧阅读题练习',async
  const raw={translation:'',teaching:null,explanations:[{questionId:q.id,answer:q.answer,analysis:'按题目要求覆盖邀请、时间地点及活动。',evidenceIds:[],practiceBlueprint:{kind:'writing',skill:'邀请信',sourceTopic:'Invitation letter'}}]};
  vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(raw)}}]})).mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({items:[{id:q.id,exercise}]})}}]})));
  const next=await generateGroup(p,a.id,[q.id],s,'test-key',new AbortController().signal,()=>{});expect(next.passages[0].learning).toBeUndefined();expect(next.questions[0].versions.at(-1)?.exercise).toBeUndefined();
-});
-it('生成解析不因无关句法成分错误而丢弃已经返回的解析',async()=>{
- const p=demoProject(),q=p.questions[0];delete p.passages[0].learning;const teaching=demoGeneratedTeaching();teaching.sentences[0].parts[0].text='This is not a source fragment';
- const raw={translation:'译文',teaching,explanations:[{questionId:q.id,answer:q.answer,analysis:'已生成的正确原题解析',evidenceIds:[],practiceBlueprint:{kind:'reading',skill:demoExercise().skill,sourceTopic:'National parks'}}]};
- vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(raw)}}]})).mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({items:[{id:q.id,exercise:demoExercise()}]})}}]})));
- const next=await generateGroup(p,p.passages[0].id,[q.id],s,'test-key',new AbortController().signal,()=>{});
- expect(next.questions[0].versions.at(-1)?.analysis).toBe('已生成的正确原题解析');
 });

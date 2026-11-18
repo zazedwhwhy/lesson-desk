@@ -56,7 +56,7 @@ export function missingOrganizationTargets(p:Project,targets:OrganizationTarget[
  * unique literal stem binding can recover an absent source id. */
 export function englishQuestionSourceId(p:Project,q:Question){
  const sources=p.sources.filter(s=>s.role==='paper');
- if(q.sourceId&&sources.some(s=>s.id===q.sourceId))return q.sourceId;
+ if(q.sourceId)return sources.some(s=>s.id===q.sourceId)?q.sourceId:undefined;
  if(sources.length===1)return sources[0].id;
  const stem=q.stem.replace(/\s/g,'');if(!stem)return undefined;
  const matches=sources.filter(s=>s.blocks.map(b=>b.text).join('\n').replace(/\s/g,'').includes(stem));

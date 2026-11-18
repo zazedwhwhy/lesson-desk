@@ -57,7 +57,8 @@ export async function recognizeChemistryFigures(p:Project,directory:string,s:Set
     try{await page.render({canvas:canvas as any,canvasContext:canvas.getContext('2d') as any,viewport}).promise;await process(source,canvas,pageNumber,pageNumber);}finally{page.cleanup();}
    }}finally{await doc.loadingTask.destroy();}
   }else if(source.kind==='docx'){
-   const images=wordFigureInputs(source.previewHtml||'');
+   if(!source.previewHtml?.trim())throw Error(source.name+' 缺少 Word 预览，请重新导入原文件后提取题图');
+   const images=wordFigureInputs(source.previewHtml);
    for(const [index,{data,contexts}] of images.entries()){
     if(source.figureScanUnits?.includes(index+1))continue;
     if(signal.aborted)throw Error('已取消题图识别');

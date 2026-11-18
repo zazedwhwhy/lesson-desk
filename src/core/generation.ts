@@ -1,5 +1,4 @@
-import {GenerationContentError,isContentError} from './errors';
-import{taskKinds,type GenerationContent,type GenerationTask,type GenerationMode,ServiceStopError}from'./generation-model';
+import{taskKinds,type GenerationContent,type GenerationTask,type GenerationMode}from'./generation-model';
 export{taskSchema,ServiceStopError}from'./generation-model';
 import type{Project}from'./model';
 import{issues,teachingSource}from'./logic';
@@ -50,21 +49,4 @@ export function planGeneration(project:Project,ids:string[],mode:GenerationMode)
  }
  const selectedTasks=taskKinds.includes(mode as GenerationContent)?tasks.filter(t=>t.kind===mode):tasks;if(!selectedTasks.length)throw Error('当前选择的材料不适用这一项内容');
  p.job={state:'running',done:selectedTasks.filter(t=>t.kind==='analysis'&&t.state==='complete').flatMap(t=>t.questionIds),errors:{},mode,tasks:selectedTasks};return p;
-}
-export async function runGeneration(project:Project,signal:AbortSignal,execute:(p:Project,t:GenerationTask)=>Promise<Project>,save:(p:Project)=>Promise<unknown>,resume=false,progress:(p:Project,message:string)=>void=()=>{}){
- let p=structuredClone(project);if(!p.job.tasks?.length)throw Error('没有可继续的任务，请重新选择生成范围');
- const checkpoint=async()=>{archiveGenerationJob(p);await save(p);};
- if(resume)for(const t of p.job.tasks!){if(t.source!==teachingSource(p,t.passageId))throw Error('材料或答案已变化，请重新生成；不能沿用上次任务');if(t.state!=='complete'){if(t.questionIds.some(id=>!p.questions.some(q=>q.id===id&&q.confirmed&&!q.excluded)))throw Error('题目核对状态已变化，请重新选择生成范围');t.state='pending';t.error='';}}
- p.job.state='running';p.job.stopReason=undefined;await checkpoint();
- for(let i=0;i<p.job.tasks!.length;i++){
-  if(signal.aborted)break;const t=p.job.tasks![i];if(t.state!=='pending')continue;
-  t.state='running';t.attempts++;t.error='';delete p.job.errors[t.id];p.job.current=t.id;await checkpoint();progress(p,'正在生成：'+t.title);
-  try{const next=await execute(structuredClone(p),structuredClone(t));p=next;if(signal.aborted)break;if(p.job.tasks![i].state!=='failed')p.job.tasks![i].state='complete';p.job.done=[...new Set(p.job.tasks!.filter(t=>t.kind==='analysis'&&t.state==='complete').flatMap(t=>t.questionIds))];}
-  catch(error){const current=p.job.tasks![i];if(signal.aborted){current.state='pending';break;}current.state='failed';current.error=error instanceof Error?error.message:String(error);p.job.errors[t.id]=current.error;if(!isContentError(error)){p.job.stopReason=current.error;await checkpoint();break;}}
-  await checkpoint();progress(p,p.job.tasks![i].state==='failed'?'此项失败，继续后续内容：'+t.title:'已保存：'+t.title);if(p.job.stopReason)break;
- }
- for(const t of p.job.tasks!)if(t.state==='running')t.state='pending';
- const complete=p.job.tasks!.filter(t=>t.state==='complete').length;
- p.job.done=[...new Set(p.job.tasks!.filter(t=>t.kind==='analysis'&&t.state==='complete').flatMap(t=>t.questionIds))];
- p.job.errors=Object.fromEntries(p.job.tasks!.filter(t=>t.state==='failed').map(t=>[t.id,t.error]));p.job.state=signal.aborted?'cancelled':p.job.tasks!.every(t=>t.state==='complete')?'complete':complete?'partial':'failed';p.job.current=undefined;await checkpoint();const firstFailure=p.job.tasks!.find(t=>t.state==='failed');progress(p,p.job.state==='complete'?'所选内容生成完成':signal.aborted?'本项已取消，已完成内容已保存':firstFailure?'未完成：'+firstFailure.title+'。'+firstFailure.error:'本项尚未完成，请查看逐项进度');return p;
 }

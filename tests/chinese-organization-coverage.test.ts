@@ -45,5 +45,5 @@ it('服务中断后未执行的篇目保留教师编辑与已有讲评',async()=
  p.chinese!.groups=[saved];const before=structuredClone(p);
  const fetch=vi.fn(async()=>Response.json({error:{message:'unauthorized'}},{status:401}));vi.stubGlobal('fetch',fetch);
  const out=await organizeChinese(p,{provider:'custom',model:'test',baseUrl:'https://example.test'},'synthetic',new AbortController().signal);
- expect(out.chinese.groups).toEqual([saved]);expect(out.chinese.organizationIssues).toHaveLength(2);expect(fetch).toHaveBeenCalledTimes(1);expect(p).toEqual(before);
+ expect(out.chinese.groups[0]).toEqual({...saved,sourceNeedsReview:true,versions:saved.versions.map(v=>({...v,confirmed:false})),questions:saved.questions.map(q=>({...q,confirmed:false}))});expect(out.chinese.history.at(-1)?.groups).toEqual([saved]);expect(out.chinese.organizationIssues).toHaveLength(2);expect(fetch).toHaveBeenCalledTimes(1);expect(p).toEqual(before);
 });

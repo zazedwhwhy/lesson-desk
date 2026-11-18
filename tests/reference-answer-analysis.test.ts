@@ -1,6 +1,7 @@
+import {runParallelGeneration} from '../src/desktop/parallel-generation';
 import { afterEach, expect, it, vi } from 'vitest';
 import { demoProject } from '../src/core/demo';
-import { planGeneration, runGeneration } from '../src/core/generation';
+import { planGeneration } from '../src/core/generation';
 import { teachingSource } from '../src/core/logic';
 import { generateGroup } from '../src/desktop/ai';
 import { generationExecutor } from '../src/desktop/generation-service';
@@ -27,7 +28,7 @@ it('偏离参考答案后仅修正失败题，修正仍保留答案及对应解�
   const planned = planGeneration(p, [q.id], 'analysis'), signal = new AbortController().signal;
   const fetch = vi.fn().mockResolvedValueOnce(response([row(q.id, 'B', '误把 B 作为答案。')])).mockResolvedValueOnce(response([row(q.id, 'A')]));
   vi.stubGlobal('fetch', fetch);
-  const next = await runGeneration(planned, signal, generationExecutor(settings, 'synthetic', signal, () => {}), async () => {});
+  const next = await runParallelGeneration(planned, signal, generationExecutor(settings, 'synthetic', signal), async () => {});
   expect(next.job.state).toBe('complete');
   expect(next.questions[0].versions).toHaveLength(1);
   expect(next.questions[0].versions[0]).toMatchObject({ answer: 'A', analysis: '依据参考答案 A，原文的生物多样性对应 A 项。', conflict: false });

@@ -1,3 +1,4 @@
+import {GenerationConnection} from './GenerationConnection';
 import React,{useState} from 'react';
 import {applicableChineseModules,chineseModuleNames,chineseModules,type ChineseData,type ChineseModule} from '../core/chinese';
 import {friendlyError} from '../core/errors';
@@ -19,8 +20,7 @@ export function ChinesePreparationGeneration({data:d,groupIds,modules,setModules
    {!d.groups.length&&<p className="prep-note">还没有材料组。请先上传或粘贴试卷并整理题目，再选择要生成的讲义。</p>}
    <div className="prep-scope"><strong>{selectedCount?'当前勾选题目':'整张试卷'} · {scope.questions.length} 道题可生成</strong><span>仅使用已核对、未排除的题目。{unconfirmed} 题待核对，{excluded} 题已排除。</span></div>
    <fieldset className="prep-module-list" disabled={blocked}><legend>本次生成哪些内容</legend>{chineseModules.map(m=><label key={m}><input type="checkbox" checked={modules.includes(m)} disabled={!available.has(m)} onChange={e=>setModules(toggle(modules,m,e.target.checked))}/><span><strong>{chineseModuleNames[m]}</strong><small>{!available.has(m)?'不适用于当前材料组':['analysis','practice'].includes(m)?'按所选题目分别生成':'按适用材料组生成'}</small></span></label>)}</fieldset>
-   <p className="prep-service">生成服务：{provider==='custom'?'自定义服务':provider} · {model||'尚未设置模型'}。相应材料会发送给此服务。<button className="prep-text-button" disabled={blocked} onClick={settings}>连接设置</button></p>
-   {!connected&&<p className="prep-note">当前为浏览器预览，不能调用模型。请在桌面程序中连接服务后生成。</p>}
+   <GenerationConnection connected={connected} provider={provider} model={model} busy={blocked} settings={settings}/>
    {!!scope.unconfirmed&&<p className="prep-note">请先核对所选的 {scope.unconfirmed} 道题，或在题目范围中取消勾选，再开始生成。</p>}
    {!scope.taskCount&&<p className="prep-note">请先在题目清单中核对题面，并勾选至少一个适用模块。</p>}
    <div className="actions"><button className="primary" disabled={blocked||!connected||!!scope.unconfirmed||!scope.taskCount} onClick={()=>void start(false)}>开始生成{modules.length?`（${modules.length} 个模块）`:''}</button>{!blocked&&d.tasks.some(t=>t.state!=='complete')&&<button disabled={!connected} onClick={()=>void start(true)}>继续上次未完成项</button>}{active&&<button disabled={cancelling} onClick={()=>void stop()}>{cancelling?'正在取消…':'取消本次生成'}</button>}</div>

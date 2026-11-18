@@ -1,9 +1,9 @@
-import {GenerationContentError,isContentError} from '../core/errors';
+import {isContentError} from '../core/errors';
 import type {Project} from '../core/model';
 import type {GenerationTask} from '../core/generation-model';
 import {ServiceStopError} from '../core/generation-model';
 import {archiveGenerationJob} from '../core/generation';
-import {teachingSource} from '../core/logic';
+import {issues,teachingSource} from '../core/logic';
 import {taskPool,serialSnapshots} from '../core/task-pool';
 import {phaseFor} from '../core/task-timing';
 import {commitTeachingModule} from './teaching-parts';
@@ -34,9 +34,18 @@ export function mergeTaskResult(current:Project,result:Project,t:GenerationTask)
  }
  return next;
 }
-export async function runParallelGeneration(project:Project,signal:AbortSignal,execute:(p:Project,t:GenerationTask,status?:(message:string)=>void)=>Promise<Project>,save:(p:Project)=>Promise<unknown>,resume=false,progress:(p:Project,message:string)=>void=()=>{}){
+export async function runParallelGeneration(project:Project,signal:AbortSignal,execute:(p:Project,t:GenerationTask,status:(message:string)=>void)=>Promise<Project>,save:(p:Project)=>Promise<unknown>,resume=false,progress:(p:Project,message:string)=>void=()=>{}){
  let p=structuredClone(project);if(!p.job.tasks?.length)throw Error('没有可继续的任务');
- if(resume)for(const t of p.job.tasks){if(t.source!==teachingSource(p,t.passageId)||t.questionIds.some(id=>!p.questions.some(q=>q.id===id&&q.confirmed&&!q.excluded)))throw Error('材料或核对状态已变化，请重新选择生成');if(t.state!=='complete'){t.state='pending';t.error='';}}
+ if(resume)for(const task of p.job.tasks){
+  if(task.source!==teachingSource(p,task.passageId))throw Error('材料已变化，请重新选择生成');
+  for(const id of task.questionIds){
+   const q=p.questions.find(q=>q.id===id);
+   if(!q?.confirmed||q.excluded)throw Error('题目核对状态已变化，请重新选择生成');
+   const problems=issues(p,q).filter(issue=>issue!=='AI答案与参考答案冲突');
+   if(problems.length)throw Error('第'+q.number+'题：'+problems.join('；'));
+  }
+  if(task.state!=='complete'){task.state='pending';task.error='';}
+ }
  p.job.state='running';p.job.stopReason=undefined;
  const persist=serialSnapshots<Project>(async(value,message)=>{await save(value);progress(value,message);});
  const checkpoint=(message:string)=>{archiveGenerationJob(p);return persist(p,message);};
@@ -44,30 +53,71 @@ export async function runParallelGeneration(project:Project,signal:AbortSignal,e
  // Resume scopes may list practice before analysis. Dispatch prerequisites
  // first so waiting dependants cannot occupy every worker slot.
  const items=p.job.tasks.filter(t=>t.state==='pending').sort((a,b)=>Number(b.kind==='analysis')-Number(a.kind==='analysis'));
- const dependencies=new Map<string,Promise<void>>();
- const done=new Map<string,()=>void>();
- for(const t of items)dependencies.set(t.id,new Promise(resolve=>done.set(t.id,resolve)));
- await taskPool(items,async entry=>{
+ // Analyses can share the passage and wire schema. Other modules use their own prompts.
+ const batches:GenerationTask[][]=[];
+ const openBatches=new Map<string,GenerationTask[]>();
+ for(const task of items){
+  if(task.kind!=='analysis'){batches.push([task]);continue;}
+  let batch=openBatches.get(task.passageId);
+  if(!batch||batch.length===4){batch=[];openBatches.set(task.passageId,batch);batches.push(batch);}
+  batch.push(task);
+ }
+ const analysisDone=new Map<string,Promise<void>>();
+ const finish=new Map<string,()=>void>();
+ for(const task of items.filter(t=>t.kind==='analysis')){
+  for(const id of task.questionIds)analysisDone.set(id,new Promise(resolve=>finish.set(id,resolve)));
+ }
+ const live=(id:string)=>p.job.tasks!.find(t=>t.id===id)!;
+ const stopped=()=>signal.aborted||!!p.job.stopReason;
+ await taskPool(batches,async batch=>{
+  const first=batch[0], ids=new Set(batch.map(t=>t.id));
   try{
-   if(entry.kind==='practice')await Promise.all(items.filter(t=>t.kind==='analysis'&&t.questionIds.some(id=>entry.questionIds.includes(id))).map(t=>dependencies.get(t.id)!));
-   if(signal.aborted||p.job.stopReason)return;
-   let t=p.job.tasks!.find(t=>t.id===entry.id)!;t.state='running';t.attempts++;t.error='';t.startedAt=Date.now();delete t.finishedAt;t.phase='generating';
-   await checkpoint('正在生成：'+t.title);
-   if(signal.aborted||p.job.stopReason){p.job.tasks!.find(x=>x.id===entry.id)!.state='pending';return;}
-   const status=(message:string)=>{const live=p.job.tasks!.find(x=>x.id===entry.id)!;live.phase=phaseFor(message);progress(structuredClone(p),message);};
+   if(first.kind==='practice')await Promise.all(first.questionIds.map(id=>analysisDone.get(id)));
+   if(stopped())return;
+   for(const {id} of batch){
+    const t=live(id);t.state='running';t.attempts++;t.error='';t.startedAt=Date.now();
+    delete t.finishedAt;delete p.job.errors[id];t.phase='generating';
+   }
+   await checkpoint('正在生成：'+first.title);
+   if(stopped())return;
+   const status=(message:string)=>{
+    for(const {id} of batch)live(id).phase=phaseFor(message);
+    progress(structuredClone(p),message);
+   };
    try{
     const snapshot=structuredClone(p);
-    // Each worker owns one analysis task; do not claim another worker's work.
-    snapshot.job.tasks=snapshot.job.tasks!.filter(x=>x.id===t.id);
-    const result=await execute(snapshot,structuredClone(t),status);
-    if(signal.aborted){t=p.job.tasks!.find(x=>x.id===entry.id)!;t.state='pending';}
-    else{p=mergeTaskResult(p,result,t);t=p.job.tasks!.find(x=>x.id===entry.id)!;const outcome=result.job.tasks?.find(x=>x.id===t.id);t.state=outcome?.state==='failed'?'failed':'complete';t.error=outcome?.error||'';if(result.job.stopReason)p.job.stopReason=result.job.stopReason;}
-   }catch(error){t=p.job.tasks!.find(x=>x.id===entry.id)!;t.state=signal.aborted?'pending':'failed';t.error=error instanceof Error?error.message:String(error);if(!isContentError(error))p.job.stopReason=t.error;}
-   t.finishedAt=Date.now();t.phase='saving';
-   p.job.done=p.job.tasks!.filter(x=>x.kind==='analysis'&&x.state==='complete').flatMap(x=>x.questionIds);
-   await checkpoint(t.state==='complete'?'已保存：'+t.title:'本项未完成：'+t.title);
-  }finally{done.get(entry.id)!();}
- },()=>signal.aborted||!!p.job.stopReason);
+    snapshot.job.tasks=snapshot.job.tasks!.filter(t=>ids.has(t.id));
+    const result=await execute(snapshot,first,status);
+    if(result.job.stopReason)p.job.stopReason=result.job.stopReason;
+    const completed:GenerationTask[]=[];
+    for(const {id} of batch){
+     const t=live(id);
+     if(t.kind==='analysis'){
+      const outcome=result.job.tasks?.find(task=>task.id===id);
+      if(outcome?.state==='complete')t.state='complete';
+      else if(outcome?.state==='failed'){t.state='failed';t.error=outcome.error;}
+      else if(signal.aborted)t.state='pending';
+      else throw Error('解析未返回逐题结果：'+t.title);
+     }else t.state=signal.aborted?'pending':'complete';
+     if(t.state==='complete')completed.push(t);
+    }
+    if(completed.length){
+     // Grouped analyses own only these question versions. Merge their snapshot once.
+     const owned={...completed[0],questionIds:completed.flatMap(task=>task.questionIds)};
+     p=mergeTaskResult(p,result,owned);
+    }
+   }catch(error){
+    const message=error instanceof Error?error.message:String(error);
+    for(const {id} of batch){const t=live(id);t.state=signal.aborted?'pending':'failed';t.error=signal.aborted?'':message;}
+    if(!signal.aborted&&!isContentError(error))p.job.stopReason=message;
+   }
+   for(const {id} of batch){const t=live(id);t.finishedAt=Date.now();t.phase='saving';}
+   p.job.done=p.job.tasks!.filter(t=>t.kind==='analysis'&&t.state==='complete').flatMap(t=>t.questionIds);
+   await checkpoint(batch.every(t=>live(t.id).state==='complete')?'已保存：'+first.title:'本批有未完成项，请查看逐项进度');
+  }finally{
+   if(first.kind==='analysis')for(const t of batch)for(const id of t.questionIds)finish.get(id)!();
+  }
+ },stopped);
  for(const t of p.job.tasks!)if(t.state==='running')t.state='pending';
  p.job.errors=Object.fromEntries(p.job.tasks!.filter(t=>t.state==='failed').map(t=>[t.id,t.error]));
  p.job.state=signal.aborted?'cancelled':p.job.tasks!.every(t=>t.state==='complete')?'complete':p.job.tasks!.some(t=>t.state==='complete')?'partial':'failed';p.job.current=undefined;

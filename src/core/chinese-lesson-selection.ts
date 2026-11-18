@@ -10,6 +10,7 @@ export function latestAvailableChineseVersion(d:ChineseData,g:ChineseGroup,modul
  return g.versions.filter(v=>v.module===module&&v.questionId===questionId&&chineseAvailable(d,g,v)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).at(-1);
 }
 export function chineseLessonReason(d:ChineseData,g:ChineseGroup,module:ChineseLessonModule,questionIds:string[]):string|null{
+ if(g.sourceNeedsReview)return '请先在备课材料中重新核对原文';
  if(module==='source')return g.materials.some(m=>m.image&&!m.imageConfirmed)?'图片尚未核对':g.materials.some(m=>m.text.trim()||m.image)?null:'尚无原文';
  if(!applicableChineseModules(g).includes(module))return '不适用于本组材料';
  const perQuestion=module==='analysis'||module==='practice';

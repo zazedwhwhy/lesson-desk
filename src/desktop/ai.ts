@@ -1,3 +1,4 @@
+import {setTimeout as delay} from 'node:timers/promises';
 import { connectionSettings } from '../core/ai-settings';
 import {organizeWithCoverage,type OrganizationOptions} from './organization';
 import type {OrganizationTarget} from '../core/organization-coverage';
@@ -28,12 +29,13 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
     const jsonSchema = z.toJSONSchema(outputSchema); delete (jsonSchema as any).$schema;
     const { url, headers, body } = providerRequest(settings, key, jsonSchema, composed.prompt, composed.system, images, maxOutputTokens);
     promptBook.record(composed.id, { assembledAt: new Date().toISOString(), body: requestPreview(body) });
-    let rawResponse:unknown;try{for (let attempt = 0; attempt < 3; attempt++) {
+    const payload=JSON.stringify(body);
+    let rawResponse:unknown;try{for (let attempt = 0; ; attempt++) {
     if (signal.aborted) throw Error('已取消');
     const timeout = AbortSignal.timeout(120000);
     let r: Response;
     try {
-        r = await fetch(url, { method: 'POST', headers, redirect: 'error', body: JSON.stringify(body), signal: AbortSignal.any([signal, timeout]) });
+        r = await fetch(url, { method: 'POST', headers, redirect: 'error', body: payload, signal: AbortSignal.any([signal, timeout]) });
     }
     catch (e) {
         if (signal.aborted)
@@ -41,11 +43,12 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
         throw new ServiceStopError('请求中断、超时或接口跳转被阻止，后续任务已暂停；请检查API基础地址后手动继续，服务端可能已计费。' + String(e));
     }
     if (!r.ok) {
-        if ((r.status === 429 || r.status >= 500) && attempt < 2) {
+        if (r.status === 429 && attempt < 2) {
             onRetry(`服务暂不可用，正在重试 ${attempt + 1}/2`);
-            await new Promise<void>((resolve, reject) => { const t = setTimeout(resolve, 1000 * 2 ** attempt); signal.addEventListener('abort', () => { clearTimeout(t); reject(Error('已取消')); }, { once: true }); });
+            await delay(1000 * 2 ** attempt, undefined, {signal});
             continue;
         }
+        if(r.status >= 500)throw new ServiceStopError(`API 服务返回 ${r.status}，已暂停生成。请检查服务状态后手动继续。`);
         if([400,413,422].includes(r.status)){
             let detail:any;try{detail=await r.json();}catch(error){throw new ServiceStopError(`API请求失败（${r.status}），且错误响应无法解析；后续任务已暂停，请检查服务接口。`);}
             const code=String(detail?.error?.code||detail?.error?.type||'');
@@ -76,12 +79,12 @@ export async function callAI<T>(settings: Settings, key: string, schema: z.ZodTy
     if (!result.success)
         throw new GenerationContentError('AI内容结构不符合要求：' + result.error.issues.slice(0, 3).map(x => x.path.join('.') + ':' + x.message).join(';'));
     return result.data;
-} throw new GenerationContentError('重试次数已用尽'); }catch(error){return preserveFailure(error,{stage:'api-output',task:composed.id,model:settings.model,rawResponse});} }
+} }catch(error){return preserveFailure(error,{stage:'api-output',task:composed.id,model:settings.model,rawResponse});} }
 export async function organize(p:Project,s:Settings,key:string,signal:AbortSignal,options:OrganizationOptions={}){
  assertOcrReviewed(p.sources);
- return organizeWithCoverage(p,signal,(part,targets)=>organizeEnglishPart(part,s,key,signal,targets),options);
+ return organizeWithCoverage(p,signal,(part,targets)=>organizeEnglishPart(part,s,key,signal,targets,p.sources.filter(source=>source.role==='paper').length>1),options);
 }
-async function organizeEnglishPart(p: Project, s: Settings, key: string, signal: AbortSignal, targets?:OrganizationTarget[]) { const out = await callAI(s, key, organized, organizeInstruction+'\n材料：'+JSON.stringify({scope:targets?{targets,instruction:'只补齐这些题目或写作任务，保留完整关联原文；答案来源中的其他题号不属于本次整理范围'}:undefined,sourceBinding:'每题sourceId填写其所属paper来源id，不能用答案册id；同号但不同来源的题分别保留',sources:p.sources.map(s=>({id:s.id,name:s.name,role:s.role,blocks:s.blocks}))}), signal,()=>{},guard,[],32768); try{const ids = new Set<string>(); for (const a of out.passages) {
+async function organizeEnglishPart(p: Project, s: Settings, key: string, signal: AbortSignal, targets?:OrganizationTarget[],multiplePapers=false) { const out = await callAI(s, key, organized, organizeInstruction+'\n材料：'+JSON.stringify({scope:targets?{targets,instruction:'只补齐这些题目或写作任务，保留完整关联原文；答案来源中的其他题号不属于本次整理范围'}:undefined,sourceBinding:'每题sourceId填写其所属paper来源id，不能用答案册id；同号但不同来源的题分别保留',sources:p.sources.map(s=>({id:s.id,name:s.name,role:s.role,blocks:s.blocks}))}), signal,()=>{},guard,[],32768); try{const ids = new Set<string>(); for (const a of out.passages) {
     if (ids.has(a.id))
         throw new GenerationContentError('AI整理的材料ID重复');
     ids.add(a.id);
@@ -93,8 +96,8 @@ const qids = new Set<string>(); for (const q of out.questions) {
     if (qids.has(q.id) || !ids.has(q.passageId))
         throw new GenerationContentError('AI整理的题目关联无效');
     qids.add(q.id);
-} const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; protectEnglish(p,out,sourceFidelityIssues); const next=structuredClone(p); next.sourceFidelityIssues=sourceFidelityIssues; next.passages = out.passages.map(a => passageSchema.parse(a)); next.questions = out.questions.map(q => questionSchema.parse({ ...q, confirmed: false, excluded: false, stale: false, versions: [] })); return attachSourceReferences(next); }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});} }
-export async function generateGroup(p:Project,pid:string,selected:string[],s:Settings,key:string,signal:AbortSignal,onRetry:(message:string)=>void,_legacy?:boolean,feedback=''){
+} const sourceFidelityIssues:NonNullable<Project['sourceFidelityIssues']>=[]; protectEnglish(p,out,sourceFidelityIssues); const next=structuredClone(p); next.sourceFidelityIssues=sourceFidelityIssues; next.passages = out.passages.map(a => passageSchema.parse(a)); next.questions = out.questions.map(q => questionSchema.parse({ ...q, confirmed: false, excluded: false, stale: false, versions: [] })); return attachSourceReferences(next,multiplePapers); }catch(error){return preserveFailure(error,{stage:'organize-validation',projectId:p.id,model:s.model,subject:p.subject,candidate:out});} }
+export async function generateGroup(p:Project,pid:string,selected:string[],s:Settings,key:string,signal:AbortSignal,onRetry:(message:string)=>void,feedback=''){
  const a=p.passages.find(a=>a.id===pid),qs=p.questions.filter(q=>q.passageId===pid&&selected.includes(q.id)&&!q.excluded);if(!a||!qs.length)throw Error('没有可生成的题目');
  const catalog=createCitationCatalog(a.paragraphs),prompt=(feedback?'上次此题的校验错误如下，请针对性修正，不改参考答案：'+feedback+'\n':'')+analysisInstruction+"\n输入："+JSON.stringify({passage:{id:a.id,title:a.title,type:a.type,paragraphs:citationParagraphs(a.paragraphs,catalog),pool:a.pool},questions:qs.map(q=>({id:q.id,number:q.number,type:q.type,stem:q.stem,options:optionEntries(q.options),referenceAnswer:q.answer}))});
  // The wire schema stays strict; validate each returned row independently so one
