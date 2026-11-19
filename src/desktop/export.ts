@@ -26,7 +26,11 @@ export async function exportLessonSlides(deck:{title:string;section:string;kind:
   slide.background={color:colors.background};
   if(title.y>=.36)slide.addText(s.section,{x:title.x,y:Math.max(.08,title.y-.32),w:title.w,h:.22,fontFace:fonts.body,fontSize:10,color:colors.muted,margin:0,fit:'shrink'});
   slide.addText(s.title,{...title,fontFace:fonts.heading,fontSize:28,color:colors.accent,margin:0,fit:'shrink',valign:'middle',breakLine:false});
-  if(!template.custom)slide.addShape(ppt.ShapeType.line,{x:title.x,y:body.y-.24,w:body.w,h:0,line:{color:colors.line,width:1}});
+  if(!template.custom){
+   const rule=title.x+title.w<body.x?{x:body.x-.24,y:body.y,w:0,h:body.h}
+    :{x:body.x,y:title.y>body.y?title.y-.40:body.y-.24,w:body.w,h:0};
+   slide.addShape(ppt.ShapeType.line,{...rule,line:{color:colors.line,width:1}});
+  }
   const image='image' in s?s.image:undefined;
   if(image)slide.addImage({data:image as string,...body,sizing:{type:'contain',w:body.w,h:body.h}});
   for(const b of layoutBlocks(s.blocks,layout,s.kind)){
@@ -42,7 +46,7 @@ export async function exportLessonSlides(deck:{title:string;section:string;kind:
      y+=row.h;
     }
    }else{
-   slide.addText(b.text,{x:b.x,y:b.textY,w:b.w,h:b.textH,fontFace:subject!=='english'?fonts.body:['source','question','practice'].includes(s.kind)?fonts.source:fonts.body,fontSize:bodyFontSize(s.kind),color:b.emphasis?colors.accent:colors.text,margin:0,valign:'top',breakLine:false,lineSpacingMultiple:1.08});
+   slide.addText(b.text,{x:b.x,y:b.textY,w:b.w,h:b.textH,fontFace:subject!=='english'?fonts.body:['source','question','practice'].includes(s.kind)?fonts.source:fonts.body,fontSize:bodyFontSize(s.kind),bold:!!b.emphasis,color:b.emphasis?colors.accent:colors.text,margin:0,valign:'top',breakLine:false,lineSpacingMultiple:1.08});
    }
   }
   if(layout.height-(body.y+body.h)>=.34){

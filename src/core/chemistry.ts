@@ -68,6 +68,7 @@ export function chemSlides(d:Chemistry,selected:string[],layout:SlideLayout=defa
    if(!chemReady(q,v))throw Error('所选讲义未确认、待核实或已过期：第 '+q.number+' 题 · '+chemNames[v.module]);
    // Practice blocks are separate slides so solutions cannot appear with tasks.
    const groups=v.module==='practice'?v.result.blocks.map(b=>[b]):[v.result.blocks];
+   if(v.module==='analysis'&&q.answer.trim()&&!groups[0].some(b=>b.text.trim()===q.answer.trim()))groups[0]=[{label:'参考答案',text:q.answer},...groups[0]];
    groups.forEach(blocks=>add('第 '+q.number+' 题 · '+chemNames[v.module],blocks,v.module==='practice'?'practice':'analysis',v.id));
   }
  }

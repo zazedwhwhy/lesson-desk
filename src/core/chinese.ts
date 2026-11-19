@@ -36,7 +36,9 @@ export function chineseSlides(d:ChineseData,selected:string[],layout:SlideLayout
   const emit=(v:ChineseGroup['versions'][number])=>{
    if(!chineseAvailable(d,g,v))throw Error('所选讲义未确认、待核实或已过期');
    const title=(v.questionId?'第 '+g.questions.find(q=>q.id===v.questionId)?.number+' 题 · ':'')+chineseModuleNames[v.module];
-   const content=v.result.blocks;
+   const answer=v.questionId&&g.questions.find(q=>q.id===v.questionId)?.answer;
+   const content=v.module==='analysis'&&answer?.trim()&&!v.result.blocks.some(b=>b.text.trim()===answer.trim())
+    ?[{label:'参考答案',text:answer,evidence:[]},...v.result.blocks]:v.result.blocks;
    const answerAt=content.findIndex(b=>/答案|参考作答|参考解答|解答|解析|讲评|迁移说明|考点.*迁移/.test(b.label));
    // Practice keeps the student's task separate from its solution. Older labels
    // without a recognizable boundary retain their original block boundaries.

@@ -2,7 +2,7 @@ import {hasMath,mathLines} from './math-text';
 // Inches, shared by compilation, page counts and the editable PPT renderer.
 export type SlideBlock = {label:string;text:string;emphasis?:boolean;math?:boolean};
 export type Rect = {x:number;y:number;w:number;h:number};
-export type SlideLayout = {width:number;height:number;body:Rect;title:Rect};
+export type SlideLayout = {width:number;height:number;sequence?:'steps';body:Rect;title:Rect};
 export const defaultSlideLayout:SlideLayout = {width:13.333333,height:7.5,body:{x:.72,y:1.73,w:11.7,h:5.02},title:{x:.63,y:.73,w:12,h:.65}};
 export const bodyFontSize=(kind='analysis')=>['source','question','practice'].includes(kind)?22:19;
 const labelHeight=.29,gap=.13;
@@ -40,6 +40,7 @@ function pack(input:SlideBlock[],layout:SlideLayout,kind:string,height:number):S
  for(const item of input){
   if(!item.text.trim())continue;
   let remaining=item.text,continued=false;
+  if(page.length&&blockHeight(item,layout,kind)<=height&&used+gap+blockHeight(item,layout,kind)>height)flush();
   while(remaining){
    const label=item.label+(continued&&item.label&&!item.label.endsWith('（续）')?'（续）':'');
    const room=height-used-(page.length?gap:0)-(label?labelHeight:0)-.07;
@@ -59,6 +60,13 @@ function pack(input:SlideBlock[],layout:SlideLayout,kind:string,height:number):S
  flush();return pages;
 }
 export function paginateBlocks(input:SlideBlock[],layout=defaultSlideLayout,kind='analysis'):SlideBlock[][]{
+ const prepared=input.map(b=>/^(?:参考答案|答案|核心结论|关键步骤|解题关键|句子主干)(?:$|（续）)/.test(b.label)?{...b,emphasis:true}:b);
+ if(layout.sequence==='steps'&&prepared.length>1&&!['source','practice','question'].includes(kind)){
+  return prepared.flatMap(block=>paginatePage([block],layout,kind));
+ }
+ return paginatePage(prepared,layout,kind);
+}
+function paginatePage(input:SlideBlock[],layout=defaultSlideLayout,kind='analysis'):SlideBlock[][]{
  const m=metrics(layout,kind);
  if(layout.body.h<labelHeight+m.lineHeight+.07||layout.body.w<2)throw Error('模板正文区域太小，请使用正文空间更大的模板');
  const pages=pack(input,layout,kind,layout.body.h);

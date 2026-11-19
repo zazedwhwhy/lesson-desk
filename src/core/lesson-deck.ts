@@ -1,3 +1,4 @@
+import {optionEntries} from './options';
 import {paginateBlocks,defaultSlideLayout,type SlideLayout} from './slide-layout';
 import { active, type Project, type Question } from './model';
 import { questionExercise, teachingSource } from './logic';
@@ -126,10 +127,10 @@ export function buildLessonDeck(p: Project, selection: LessonSelection, layout:S
     if (chosen.includes('source')) add('source', a.title, '英文原文', blocks(block('', a.paragraphs.map(b => b.text).join('\n\n')), block('共用选项池', a.pool)), a.id);
     if (chosen.includes('translation')) add('translation', a.title, '中文译文', blocks(block('', a.translation)), a.id);
     for (const q of qs) {
-      if (chosen.includes('analysis') || chosen.includes('practice')) add('question', `第 ${q.number} 题`, a.title, blocks(block('', q.stem), ...q.options.map((o, i) => block(`选项 ${i + 1}`, o))), a.id, q.id);
+      if (chosen.includes('analysis') || chosen.includes('practice')) add('question', `第 ${q.number} 题`, a.title, blocks(block('', q.stem), block('选项', optionEntries(q.options).map(o=>o.label+'. '+o.text).join('\n'))), a.id, q.id);
       if (chosen.includes('analysis')) {
         const e = active(q)!;
-        add('analysis', `第 ${q.number} 题 · 逐题讲评`, a.title, blocks(block('参考答案', q.answer, true), block('AI 解析', e.analysis), ...e.evidence.map((x, i) => block(`原文依据 ${i + 1}`, x.quote))), a.id, q.id);
+        add('analysis', `第 ${q.number} 题 · 逐题讲评`, a.title, blocks(block(q.answer.trim()?'参考答案':'AI 建议答案（待核实）', q.answer.trim()||e.answer, true), block('AI 解析', e.analysis), ...e.evidence.map((x, i) => block(`原文依据 ${i + 1}`, x.quote))), a.id, q.id);
       }
       if (chosen.includes('practice')) {
         const exercise = questionExercise(p, q)!;

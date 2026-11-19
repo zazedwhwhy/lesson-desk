@@ -41,3 +41,19 @@
   border:1px solid var(--border); box-shadow:0 4px 16px #0002; z-index:3; display:grid;}
 .notebook-menu .notebook-bar select {width:100%;}
 .notebook-menu p[role=status] {font-size:13px; white-space:normal;}
+
+/* Paper surfaces have softer corners; rules, text tabs and slide canvases stay square. */
+:root { --desk-control-radius:6px; --desk-panel-radius:8px; }
+:is(.preparation-workspace,.lesson-setup,.library,.workspace-header,.connection-page) :is(button,input:not([type=checkbox]):not([type=radio]):not([type=range]),textarea,select) { border-radius:var(--desk-control-radius); }
+:is(.lesson-summary,.library-grid>section,.ppt-miniature,.preparation-workspace .review-grid) { border-radius:var(--desk-panel-radius); }
+.prep-question-fold { min-width:0; align-self:start; border-top:1px solid var(--prep-line); }
+.prep-question-fold>summary,.setup-template>summary,.lesson-group-body>summary,.paste-material>summary { cursor:pointer; padding:12px 0; }
+.prep-question-fold>summary { font:24px/1.4 WenKai,serif; }
+.prep-question-fold>summary small {font:13px/1.4 'Microsoft YaHei',sans-serif;color:var(--prep-muted);}
+.prep-question-fold>.panel { background:transparent; padding:0; border:0; box-shadow:none; }
+.setup-template { margin-bottom:20px; border-block:1px solid var(--border); }
+.lesson-group-body>summary { color:var(--annotation); font-size:14px; }
+.lesson-setup .ppt-miniature.miniature-blue { display:grid; grid-template-columns:1fr 2fr; align-content:center; gap:4px 10px; }
+.miniature-blue strong {grid-row:span 2;border-right:1px solid currentColor;}
+.miniature-forest strong {order:3;font-size:13px;}
+.miniature-forest>span {font-size:18px;font-weight:600;}
