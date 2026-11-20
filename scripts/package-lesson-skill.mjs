@@ -6,6 +6,7 @@ import {strToU8, zipSync} from 'fflate';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const name = 'lesson-desk-export';
+const version = '0.2.0';
 const skill = path.join(root, 'skills', name);
 const out = path.resolve(process.argv[2] ?? path.join(root, 'release', 'skills'));
 const runtime = await build({
@@ -31,8 +32,11 @@ const runtime = await build({
   }}],
 });
 
-const files = {[`${name}/scripts/build-lesson.cjs`]: runtime.outputFiles[0].contents};
-for (const relative of ['SKILL.md', 'references/manifest.md', 'references/teaching.md']) {
+const files = {
+  [`${name}/scripts/build-lesson.cjs`]: runtime.outputFiles[0].contents,
+  [`${name}/package.json`]: strToU8(JSON.stringify({name, version, private: true, keywords: ['pi-package'], pi: {skills: ['./SKILL.md']}}, null, 2) + '\n'),
+};
+for (const relative of ['SKILL.md', 'INSTALL.zh-CN.md', 'references/manifest.md', 'references/teaching.md']) {
   files[`${name}/${relative}`] = await readFile(path.join(skill, relative));
 }
 files[`${name}/licenses/lesson-desk.txt`] = await readFile(path.join(root, 'LICENSE'));
@@ -54,6 +58,6 @@ for (const directory of dependencyRoots) {
 }
 
 await mkdir(out, {recursive: true});
-const target = path.join(out, `${name}-v0.1.0.zip`);
+const target = path.join(out, `${name}-v${version}.zip`);
 await writeFile(target, zipSync(files, {level: 6}));
 process.stdout.write(target + '\n');
