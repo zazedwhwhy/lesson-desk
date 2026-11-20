@@ -105,7 +105,12 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
       data.groups.push({...group, materials, questions, versions: []});
     }
     const materialIds = new Set(data.groups.flatMap(g => g.materials.map(m => m.id)));
-    for (const group of data.groups) {
+    // Fingerprint the unchanged source after the teacher has verified its images.
+    // The saved image and lesson confirmation flags themselves remain unset in a draft.
+    const reviewedSources = {...data, groups: data.groups.map(group => ({
+      ...group, materials: group.materials.map(m => ({...m, imageConfirmed: !!m.image && !group.sourceNeedsReview})),
+    }))};
+    for (const [index, group] of data.groups.entries()) {
       for (const q of group.questions) {
         if (!q.stem.trim() || q.materialIds.some(id => !materialIds.has(id))) throw Error(`第 ${q.number} 题：题干为空或材料 ID 不存在`);
         if (q.excluded) issues.push(`第 ${q.number} 题：待核实，已排除`);
@@ -116,7 +121,7 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
         const approved = notes.result.status === 'ok' && !group.sourceNeedsReview && !q?.excluded;
         if (!approved) issues.push(`${group.title}${q ? ` · 第 ${q.number} 题` : ''} · ${notes.module}：待核实`);
         const result = validateChineseResult(data, {...group, materials: group.materials.map(m => ({...m, imageConfirmed: true}))}, notes.result);
-        group.versions.push({...notes, id: uid(), createdAt: project.updatedAt, fingerprint: chineseFingerprint(data, group, notes.questionId), confirmed: teacherReviewed && approved, result});
+        group.versions.push({...notes, id: uid(), createdAt: project.updatedAt, fingerprint: chineseFingerprint(reviewedSources, reviewedSources.groups[index], notes.questionId), confirmed: teacherReviewed && approved, result});
       }
     }
   } else {
@@ -153,8 +158,6 @@ export function preparePreview(project: Project): Project {
     for (const q of group.questions) q.confirmed = !q.excluded && !group.sourceNeedsReview;
     for (const v of group.versions) v.confirmed = v.result.status === 'ok' && !group.sourceNeedsReview;
   }
-  // Chinese fingerprints can include images referenced from a different group.
-  for (const group of preview.chinese?.groups || []) for (const v of group.versions) v.fingerprint = chineseFingerprint(preview.chinese!, group, v.questionId);
   for (const q of preview.chemistry?.questions || []) {
     q.confirmed = !q.excluded;
     for (const image of q.images) image.confirmed = !q.excluded;

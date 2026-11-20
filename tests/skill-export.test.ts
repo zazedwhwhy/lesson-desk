@@ -4,7 +4,10 @@ import path from 'node:path';
 import {strFromU8, unzipSync} from 'fflate';
 import {expect, it} from 'vitest';
 import {Store} from '../src/desktop/store';
+import {chineseAvailable} from '../src/core/chinese';
 import {buildSkillLesson} from '../skills/lesson-desk-export/tool/build-lesson';
+
+const sampleImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX3sAAAAASUVORK5CYII=', 'base64');
 
 it('同时生成可编辑课件与可导入的备份，保留原文件并跳过答案冲突题', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-'));
@@ -42,11 +45,12 @@ it('同时生成可编辑课件与可导入的备份，保留原文件并跳过�
 it('语文核对稿使用原文引用和题号，导入后讲义仍待确认', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-chinese-'));
   try {
+    await writeFile(path.join(root, 'page.png'), sampleImage);
     const original = '细雨停了，屋檐还在滴水。';
     const manifest = {project: {title: '现代文讲评', subject: 'chinese',
       sources: [{id: 'paper', name: '原卷', role: 'paper', kind: 'text', blocks: [{id: 'b1', text: original}]}],
       groups: [{id: 'g1', section: '现代文阅读', title: '雨后', kind: 'literature',
-        materials: [{id: 'm1', title: '雨后原文', text: original, sourceId: 'paper', blockIds: ['b1']}],
+        materials: [{id: 'm1', title: '雨后原文', text: original, sourceId: 'paper', blockIds: ['b1'], imageFile: 'page.png'}],
         questions: [{id: 'q7', number: '7', stem: '末句表现了怎样的环境？', format: 'short', materialIds: ['m1'], answer: '雨后安静。'}],
         versions: [{module: 'analysis', questionId: 'q7', result: {status: 'ok', notices: [], blocks: [
           {label: '分析', text: '滴水声衬托雨后的安静。', evidence: [{materialId: 'm1', quote: '屋檐还在滴水'}]},
@@ -55,10 +59,16 @@ it('语文核对稿使用原文引用和题号，导入后讲义仍待确认', a
     }};
     const result = await buildSkillLesson(manifest, root, path.join(root, 'output'));
     const imported = await new Store(path.join(root, 'imported')).unpack(await readFile(result.bundle));
-    expect(imported.chinese!.groups[0].versions[0]).toMatchObject({confirmed: false, questionId: 'q7'});
+    const group = imported.chinese!.groups[0];
+    expect(group.versions[0]).toMatchObject({confirmed: false, questionId: 'q7'});
+    expect(group.materials[0].imageConfirmed).toBe(false);
+    group.materials[0].imageConfirmed = true;
+    group.questions[0].confirmed = true;
+    group.versions[0].confirmed = true;
+    expect(chineseAvailable(imported.chinese!, group, group.versions[0])).toBe(true);
     const ppt = unzipSync(await readFile(result.pptx));
-    expect(strFromU8(ppt['ppt/slides/slide3.xml'])).toContain('雨后安静。');
-    expect(strFromU8(ppt['ppt/slides/slide3.xml'])).toContain('屋檐还在滴水');
+    expect(strFromU8(ppt['ppt/slides/slide4.xml'])).toContain('雨后安静。');
+    expect(strFromU8(ppt['ppt/slides/slide4.xml'])).toContain('屋檐还在滴水');
     manifest.project.groups[0].versions[0].result.blocks[0].evidence[0].quote = '大风吹过';
     await expect(buildSkillLesson(manifest, root, path.join(root, 'invalid'))).rejects.toThrow('讲义引用与关联材料不一致');
   } finally {
@@ -69,7 +79,7 @@ it('语文核对稿使用原文引用和题号，导入后讲义仍待确认', a
 it('化学课件可保留题图和公式，教师核对选项进入原生项目状态', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-chemistry-'));
   try {
-    const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX3sAAAAASUVORK5CYII=', 'base64');
+    const image = sampleImage;
     await writeFile(path.join(root, 'figure.png'), image);
     const manifest = {project: {title: '化学反应讲评', subject: 'chemistry',
       sources: [{id: 'paper', name: '原卷', role: 'paper', kind: 'text', blocks: [{id: 'b1', text: '写出氢气燃烧的化学方程式。'}]}],
