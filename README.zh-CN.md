@@ -12,7 +12,7 @@
 
 | 版本 | 下载 | 适用场景 |
 | --- | --- | --- |
-| 正式版 | [0.17.2](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2) | 日常备课，不含错题本功能 |
+| 正式版 | [0.18.0](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.0) | 日常备课，不含错题本功能 |
 | 测试版 | [0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) | 包含实验性的错题本，标记为预发布 |
 
 在发布页下载 Windows x64 安装器 `LessonDesk-<version>-Setup.exe`。每版附有 `SHA256SUMS.txt` 校验文件。
@@ -30,8 +30,9 @@
 - 通过 MathJax 和 mhchem 离线显示 LaTeX 公式与化学符号。
 - 修改生成内容、保留教师修订，继续未完成任务；取消后已完成项仍会保存。
 - 自选篇目和模块，按课堂顺序编排。应用内放映与可编辑 PPT 使用相同页序，支持自动分页、练习与答案分开呈现。
-- 提供纸面教案、清爽蓝白和墨绿课堂三种样式，也可导入 `.pptx` / `.potx` 模板，沿用背景、配色和字体。
+- 提供连续讲评、侧栏板书和逐步揭示三种课堂版式，也可导入 `.pptx` / `.potx` 模板，沿用背景、配色和字体。
 - 课件保存在本机，可导出备份包。Beta 另提供错题本，收录整题或片段，用于复习与复讲。
+- 可在支持的 AI 客户端使用独立分发的[讲题工作台 Skill](https://github.com/zazedwhwhy/lesson-desk-skill)，生成可编辑 PPT 和可直接导入工作台的课件包。
 
 ## 开始使用
 
@@ -71,7 +72,7 @@ AI 任务会把所需材料发给选定的服务商。调用失败后不会自�
 ```powershell
 git clone https://github.com/zazedwhwhy/lesson-desk.git
 cd lesson-desk
-git checkout v0.17.2
+git checkout v0.18.0
 npm ci
 npm run build
 npm start
@@ -89,7 +90,7 @@ npm start
 
 ## 文档与参与
 
-- [近日改动汇总](https://github.com/zazedwhwhy/lesson-desk/blob/feat/chemistry-beta-0.17/docs/近日改动汇总-0.17.2.md)
+- [0.18.0 发布说明](docs/releases/0.18.0.md)
 - [版本历史](docs/版本历史.md)
 - [贡献指南](CONTRIBUTING.md)
 - [开发与 Git 工作流](docs/开发与Git工作流.md)

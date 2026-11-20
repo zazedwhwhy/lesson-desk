@@ -12,7 +12,7 @@ Prepare exam explanations and classroom slides from your own papers. Lesson Desk
 
 | Edition | Version | What to choose |
 | --- | --- | --- |
-| Stable | [0.17.2](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2) | Regular lesson preparation; excludes the mistake notebook |
+| Stable | [0.18.0](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.0) | Regular lesson preparation without the mistake notebook |
 | Beta | [0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) | Includes the experimental mistake notebook; marked as a prerelease |
 
 Download the `LessonDesk-<version>-Setup.exe` asset for Windows x64. Each release includes `SHA256SUMS.txt`.
@@ -30,8 +30,9 @@ The app interface is currently in Chinese. This repository provides English and 
 - Render LaTeX and chemical notation offline with MathJax and mhchem.
 - Edit generated content, retain teacher revisions and resume unfinished generation. Completed items remain saved after cancellation.
 - Arrange topics and modules in teaching order. Present in the app or export editable PowerPoint slides with the same page order, separate exercise and answer pages, and automatic pagination.
-- Choose paper, blue-and-white or dark-green slide styles, or import a `.pptx` / `.potx` template for its background, colors and fonts.
+- Use continuous review, side-by-side board notes or step-by-step reveal. Import a `.pptx` / `.potx` template to reuse its background, colors and fonts.
 - Save courseware locally and export backup packages. Beta also supports collecting questions and excerpts into a mistake notebook for review.
+- Use the separately distributed [Lesson Desk Skill](https://github.com/zazedwhwhy/lesson-desk-skill) to prepare editable PowerPoint files and importable courseware packages in a compatible AI client.
 
 ## Get started
 
@@ -71,7 +72,7 @@ Use Node.js 24 LTS and Git on Windows. The commands below check out the source u
 ```powershell
 git clone https://github.com/zazedwhwhy/lesson-desk.git
 cd lesson-desk
-git checkout v0.17.2
+git checkout v0.18.0
 npm ci
 npm run build
 npm start
@@ -89,7 +90,7 @@ Installers are written to `release/`. Stable and Beta build outputs are separate
 
 ## Documentation and contributions
 
-- [Recent changes](https://github.com/zazedwhwhy/lesson-desk/blob/feat/chemistry-beta-0.17/docs/近日改动汇总-0.17.2.md) (Chinese)
+- [0.18.0 release notes](docs/releases/0.18.0.md)
 - [Version history](docs/版本历史.md) (Chinese)
 - [Contributing](CONTRIBUTING.md)
 - [Development workflow](docs/开发与Git工作流.md) (Chinese)
