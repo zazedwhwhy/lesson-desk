@@ -142,3 +142,13 @@ it('OpenAI 自动修正的判别联合转换为支持的 anyOf', async () => {
   expect(output.properties.operations.items.oneOf).toBeUndefined();
   expect(output.properties.operations.items.anyOf).toHaveLength(5);
 });
+
+it.each(['claude','custom'])('%s 返回了其他协议时停用队列的内容修正', async provider=>{
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({status:'completed',output:[]})));
+  await expect(callAI(settings(provider),'test',schema,'任务',new AbortController().signal)).rejects.toBeInstanceOf(ServiceStopError);
+});
+it('响应 503 后保留手动继续，避免自动重复生成',async()=>{
+  const fetch=vi.fn(async()=>new Response(null,{status:503}));vi.stubGlobal('fetch',fetch);
+  await expect(callAI(settings('openai'),'test',schema,'任务',new AbortController().signal)).rejects.toThrow('503');
+  expect(fetch).toHaveBeenCalledTimes(1);
+});

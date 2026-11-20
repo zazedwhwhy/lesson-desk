@@ -4,7 +4,9 @@ import { active, type Project, type Question, type Slide, type Passage } from '.
 import{exerciseText,exerciseAnswerText}from'./exercise';
 export function questionExercise(p:Project,q:Question){const a=p.passages.find(a=>a.id===q.passageId),v=a?.learning?.versions.find(v=>v.id===a.learning?.activeVersion);if(!a?.learning?.stale&&v?.sourceText===teachingSource(p,q.passageId)){const exercise=v.data.transfer.find(t=>t.questionId===q.id)?.exercise;if(exercise)return exercise;}return !q.stale?active(q)?.exercise:undefined;}
 export function issues(p: Project, q: Question): string[] { if (q.excluded)
-    return []; const out: string[] = []; const a = p.passages.find(x => x.id === q.passageId); if (!a)
+    return []; const out: string[] = [];
+    if(q.sourceId&&!p.sources.some(s=>s.role==='paper'&&s.id===q.sourceId))out.push('题目原试卷已不存在，请重新选择试卷来源');
+    const a = p.passages.find(x => x.id === q.passageId); if (!a)
     out.push('缺少关联材料'); if (!q.stem.trim())
     out.push('缺少题干'); if (!q.answer.trim())
     out.push('缺少参考答案'); if (p.questions.some(x => x.id !== q.id && x.passageId === q.passageId && x.number === q.number && !x.excluded))
@@ -16,7 +18,7 @@ export function reviseProject(old: Project, next: Project): Project { reconcileO
     const prev = old.questions.find(x => x.id === q.id);
     if (!prev)
         continue;
-    const changed = JSON.stringify([prev.stem, prev.answer, prev.options, prev.passageId, prev.type, source(old.passages.find(x => x.id === prev.passageId))]) !== JSON.stringify([q.stem, q.answer, q.options, q.passageId, q.type, source(next.passages.find(x => x.id === q.passageId))]);
+    const changed = prev.sourceId!==q.sourceId || JSON.stringify([prev.stem, prev.answer, prev.options, prev.passageId, prev.type, source(old.passages.find(x => x.id === prev.passageId))]) !== JSON.stringify([q.stem, q.answer, q.options, q.passageId, q.type, source(next.passages.find(x => x.id === q.passageId))]);
     if (changed) {
         q.confirmed = false;
         q.stale = q.versions.length > 0;

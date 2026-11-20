@@ -53,7 +53,7 @@ export function chemistryCaller(s:Settings,key:string):ChemCaller{return async(q
  }
  return callAI(s,key,chemResultSchema,prompt,signal,status,system,images);
 };}
-export async function generateChemistry(p:Project,ids:string[],modules:ChemModule[],signal:AbortSignal,saveSnapshot:(p:Project,message:string)=>Promise<void>,call:ChemCaller,resume=false){
+export async function generateChemistry(p:Project,ids:string[],modules:ChemModule[],signal:AbortSignal,saveSnapshot:(p:Project,message:string)=>Promise<void>,call:ChemCaller,resume=false,progress?:(p:Project,message:string)=>void){
  const save=serialSnapshots(saveSnapshot);let stopped=false;
  if(p.subject!=='chemistry'||!p.chemistry)throw Error('请选择化学课件');
  const savedScope=resume&&!ids.length&&!modules.length;
@@ -72,7 +72,7 @@ export async function generateChemistry(p:Project,ids:string[],modules:ChemModul
   if(signal.aborted)return;
   const q=d.questions.find(q=>q.id===task.questionId)!;
   task.state='running';task.error='';task.attempts++;task.startedAt=Date.now();delete task.finishedAt;task.phase='generating';
-  const status=(message:string)=>{task.phase=phaseFor(message);void save(next,message).catch(()=>{});};
+  const status=(message:string)=>{task.phase=phaseFor(message);progress?.(next,message);};
   await save(next,'正在生成第 '+q.number+' 题 · '+chemNames[task.module]);
   if(signal.aborted||stopped){task.state='pending';return;}
   let result:ChemResult;

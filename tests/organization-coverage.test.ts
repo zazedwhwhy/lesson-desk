@@ -95,3 +95,11 @@ it.each(['english','chemistry'] as const)('%s 补回中间缺题时按来源位�
  }));
  const out=await organizeSubject(p);expect((subject==='english'?out.questions:out.chemistry!.questions).map(q=>q.number)).toEqual(['1','2','3']);
 });
+
+it('整卷重整失败且没有缺题可补时报告原错，保留旧卷',async()=>{
+ const p=paper('english');mock('english');
+ const ready=await organizeSubject(p);
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json({choices:[{finish_reason:'length',message:{content:''}}]})));
+ await expect(organizeSubject(ready)).rejects.toThrow('输出长度');
+ expect(ready.questions).toHaveLength(2);expect(fetch).toHaveBeenCalledTimes(1);
+});

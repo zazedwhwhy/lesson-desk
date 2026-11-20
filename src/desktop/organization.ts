@@ -36,10 +36,14 @@ export async function organizeWithCoverage(p:Project,signal:AbortSignal,request:
  const scopes=organizationScopes(p),status=options.onStatus||(()=>{});
  let next=structuredClone(p),stopped=false;
  const failures:string[]=[];
+ let wholeExamError:GenerationContentError|undefined;
+ let recoveredQuestions=0;
+ const questionCount=(value:Project)=>value.subject==='chemistry'?value.chemistry!.questions.length:value.questions.length;
  if(!options.recover){
   status('正在整理试卷，完成后将对照原卷检查漏题');
   try{next=await request(p);}catch(error){
    if(signal.aborted||error instanceof ServiceStopError||!(error instanceof GenerationContentError)||!scopes.length)throw error;
+   wholeExamError=error;
    status('整卷返回不完整，改为分段整理');
   }
  }
@@ -55,7 +59,8 @@ export async function organizeWithCoverage(p:Project,signal:AbortSignal,request:
    try{
     const candidate=await request(part,missing);
     if(signal.aborted)throw Error('整理已取消，原课件保留');
-    mergeMissing(next,candidate,missing);failure='';
+    const before=questionCount(next);
+    mergeMissing(next,candidate,missing);recoveredQuestions+=questionCount(next)-before;failure='';
    }catch(error){
     if(signal.aborted||!(error instanceof ServiceStopError)&&!isContentError(error))throw error;
     failure=error instanceof Error?error.message:String(error);
@@ -66,10 +71,12 @@ export async function organizeWithCoverage(p:Project,signal:AbortSignal,request:
   if(failure)failures.push(scope.title+'：'+failure);
  }
  if(signal.aborted)throw Error('整理已取消，原课件保留');
+ if(wholeExamError&&!recoveredQuestions)throw wholeExamError;
+ if(wholeExamError&&questionCount(p)>0)failures.unshift('整卷整理失败，已保留原课件并仅补齐缺题：'+wholeExamError.message);
  const remaining=scopes.flatMap(scope=>{const missing=missingOrganizationTargets(next,scope.targets);return missing.length?[scope.title+'：尚未整理 '+missing.map(targetLabel).join('、')]:[];});
  next.organizationIssues=[...remaining,...failures];
  if(!scopes.length)next.organizationIssues.push('原材料中未找到可自动核对的明确题号，请对照原卷人工确认是否漏题。');
- if(!(next.subject==='chemistry'?next.chemistry!.questions.length:next.questions.length))throw new GenerationContentError('未整理出有效题目，原课件保留。'+next.organizationIssues.join('；'));
+ if(!questionCount(next))throw new GenerationContentError('未整理出有效题目，原课件保留。'+next.organizationIssues.join('；'));
  status(next.organizationIssues.length?'整理结果已保存，仍有遗漏或待核实项，请查看整理报告':(next.subject==='chemistry'?'整理完成，已覆盖原材料中检测到的题号；请继续核对公式与题图':'整理完成，已覆盖原材料中检测到的题号和写作任务'));
  return next;
 }

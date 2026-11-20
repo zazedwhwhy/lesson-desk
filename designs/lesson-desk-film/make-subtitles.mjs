@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const dir=path.dirname(fileURLToPath(import.meta.url));
+const source=fs.readFileSync(path.join(dir,'film.jsx'),'utf8');
+const text=source.slice(source.indexOf('const captionLines=')+'const captionLines='.length,source.indexOf('\nfunction Film'));
+const captions=vm.runInNewContext(text,{}, {timeout:1000});
+const stamp=s=>{const ms=Math.round(s*1000);return `${String(Math.floor(ms/3600000)).padStart(2,'0')}:${String(Math.floor(ms/60000)%60).padStart(2,'0')}:${String(Math.floor(ms/1000)%60).padStart(2,'0')},${String(ms%1000).padStart(3,'0')}`;};
+let index=0;const srt=captions.flatMap((pair,i)=>pair.filter(Boolean).map((line,j)=>`${++index}\n${stamp(i*10+.85+j*4.6)} --> ${stamp(i*10+(j?9.3:5.35))}\n${line}\n`)).join('\n');
+fs.writeFileSync(path.join(dir,'讲题工作台.srt'),srt);
+console.log(`${index} captions written`);

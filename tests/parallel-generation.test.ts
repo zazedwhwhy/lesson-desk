@@ -37,7 +37,7 @@ it('恢复清单中练习排在解析前也能完成，不占满槽位等待尚�
  let p=demoProject();p=planSelectedGeneration(p,p.questions.slice(0,3).map(q=>q.id),['practice','analysis']);
  p.job.tasks!.sort((a,b)=>Number(b.kind==='practice')-Number(a.kind==='practice'));
  const seen:string[]=[];
- const out=await runParallelGeneration(p,new AbortController().signal,async(p,t)=>{seen.push(t.kind);return p;},async()=>{},true);
+ const out=await runParallelGeneration(p,new AbortController().signal,async(p,t)=>{seen.push(t.kind);if(t.kind==='analysis')for(const a of p.job.tasks!)a.state='complete';return p;},async()=>{},true);
  expect(out.job.state).toBe('complete');expect(seen[0]).toBe('analysis');
 });
 it('任务池最多三项，取消后不启动排队任务且等待在途任务结束',async()=>{

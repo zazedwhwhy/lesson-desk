@@ -1,0 +1,14 @@
+assets/*.mp3
+assets/*.wav
+assets/*.aac
+assets/*.m4a
+assets/*.bin
+assets/*.ts
+assets/hope-segments/
+*.mp4
+*.zip
+frames/
+qa/
+bundle.js
+render-*.log
+*.log

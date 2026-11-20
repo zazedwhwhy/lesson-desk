@@ -57,14 +57,18 @@ export function providerText(provider: Settings['provider'], data: any): string 
   } else if (provider === 'claude') {
     if (data.stop_reason === 'max_tokens') throw new GenerationContentError('AI输出被截断，请缩小题组后重试');
     if (data.stop_reason === 'refusal') throw new GenerationContentError('模型拒绝生成本次内容');
-    if (data.stop_reason !== 'end_turn') throw new GenerationContentError('Claude输出未完整结束，本次结果未保存，请重试');
+    if (data.stop_reason !== 'end_turn') throw new ServiceStopError('Claude响应未完整结束或格式不符，已暂停。请核对 Messages API 与模型。');
     if (!Array.isArray(data.content)) throw new ServiceStopError('Claude响应缺少content，请检查是否选择了Messages API');
     const texts = data.content.filter((x: any) => x?.type === 'text');
     if (texts.some((x: any) => typeof x.text !== 'string')) throw new ServiceStopError('Claude响应文本格式无效');
     content = texts.map((x: any) => x.text).join('');
   } else {
-    if (data.choices?.[0]?.finish_reason !== 'stop') throw new GenerationContentError(data.choices?.[0]?.finish_reason === 'length' ? '生成内容达到输出长度上限，请缩小题组后重试' : 'AI输出未完整结束，请重试');
-    content = data.choices?.[0]?.message?.content;
+    const choice = data.choices?.[0];
+    if (choice?.finish_reason === 'length') throw new GenerationContentError('生成内容达到输出长度上限，请缩小题组后重试');
+    if (choice?.finish_reason === 'content_filter') throw new GenerationContentError('模型拒绝生成本次内容');
+    if (choice?.finish_reason !== 'stop' || typeof choice.message !== 'object' || !choice.message || !('content' in choice.message))
+      throw new ServiceStopError('响应未完整结束或缺少文本字段，已暂停。请核对 Chat Completions 接口与模型。');
+    content = choice.message.content;
   }
   if (content == null || content === '') throw new GenerationContentError('AI返回空内容，本题组未生成');
   if (typeof content !== 'string') throw new ServiceStopError('API响应文本格式无效，请检查服务接口');

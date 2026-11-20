@@ -23,7 +23,7 @@ import { undoCorrection } from '../core/correction';
 import { checkIntegrity, proofreadFingerprint } from '../core/proofread';
 import{generateSpecial}from'./special';
 import{specialKinds,specialInputSchema,type SpecialKind}from'../core/special';
-import{planGeneration,planSelectedGeneration,runGeneration,generationJobFor,archiveGenerationJob}from'../core/generation';
+import{planGeneration,planSelectedGeneration,generationJobFor,archiveGenerationJob}from'../core/generation';
 import{generationNotice}from'../core/generation-notice';
 import{taskKinds,type GenerationContent}from'../core/generation-model';
 import type{TeachingModule}from'../core/learning';
@@ -167,13 +167,13 @@ app.whenReady().then(async () => {
         if(running.has(id))throw Error('已有任务正在处理，请等待或取消');
         let p=await store.load(id);if(!resume)p=planGeneration(p,ids,kind);else{archiveGenerationJob(p);const job=generationJobFor(p,kind);if(!job)throw Error('此项没有可继续的任务，请先生成');p.job=structuredClone(job);}
         const{s,key}=await credentials(),controller=new AbortController();running.set(id,controller);
-        try{const result=await runParallelGeneration(p,controller.signal,generationExecutor(s,key,controller.signal,progress),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
+        try{const result=await runParallelGeneration(p,controller.signal,generationExecutor(s,key,controller.signal),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
     }
     handle('generate',(id:string,ids:string[],kind:GenerationContent='analysis')=>{if(!taskKinds.includes(kind))throw Error('请选择一种具体内容，已取消整份讲义生成');return generate(id,ids,kind);});
     handle('generate-selected',async(id:string,ids:string[],kinds:GenerationContent[],resume=false)=>{
         if(running.has(id))throw Error('已有任务正在处理，请等待或取消');if(typeof resume!=='boolean')throw Error('生成方式无效');
         const p=planSelectedGeneration(await store.load(id),ids,kinds,resume),{s,key}=await credentials(),c=new AbortController();running.set(id,c);
-        try{const result=await runParallelGeneration(p,c.signal,generationExecutor(s,key,c.signal,progress),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
+        try{const result=await runParallelGeneration(p,c.signal,generationExecutor(s,key,c.signal),p=>store.save(p),resume,progress);notifyGeneration(result);return result;}finally{running.delete(id);}
     });
     handle('resume-generation',(id:string,kind:GenerationContent)=>{if(!taskKinds.includes(kind))throw Error('请选择要继续的内容');return generate(id,[],kind,true);});
     handle('teaching',(id:string,pid:string,module?:TeachingModule)=>{
@@ -191,7 +191,7 @@ app.whenReady().then(async () => {
     handle('generate-chinese',async(id:string,groups:string[],modules:ChineseModule[],resume=false,questions?:string[])=>{
         if(running.has(id))throw Error('已有任务正在处理');if(!Array.isArray(groups)||!Array.isArray(modules)||modules.some(m=>!chineseModules.includes(m))||typeof resume!=='boolean')throw Error('生成范围无效');
         const p=await store.load(id),{s,key}=await credentials(),c=new AbortController();running.set(id,c);
-        try{const result=await generateChinese(p,groups,modules,s,key,c.signal,async(next,message)=>{next.updatedAt=new Date().toISOString();await store.save(next);progress(next,message);},resume,questions);if(Notification.isSupported()){const n=new Notification({title:'语文讲义生成结束',body:`${result.chinese!.tasks.filter(t=>t.state==='complete').length} 项已保存，请核实后编排课件。`});notifications.add(n);n.on('close',()=>notifications.delete(n));n.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();});n.show();}return result;}finally{running.delete(id);}
+        try{const result=await generateChinese(p,groups,modules,s,key,c.signal,async(next,message)=>{next.updatedAt=new Date().toISOString();await store.save(next);progress(next,message);},resume,questions,progress);if(Notification.isSupported()){const n=new Notification({title:'语文讲义生成结束',body:`${result.chinese!.tasks.filter(t=>t.state==='complete').length} 项已保存，请核实后编排课件。`});notifications.add(n);n.on('close',()=>notifications.delete(n));n.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();});n.show();}return result;}finally{running.delete(id);}
     });
     handle('chinese-image',async(id:string,sid:string,pageNumber:number)=>{
         if(running.has(id))throw Error('任务处理中');const p=await store.load(id),src=p.sources.find(s=>s.id===sid);if(!['english','chinese','chemistry'].includes(p.subject)||!src?.asset||src.kind!=='pdf'||!Number.isInteger(pageNumber)||pageNumber<1)throw Error('请选择PDF及有效页码');
@@ -203,7 +203,7 @@ app.whenReady().then(async () => {
         if(!Array.isArray(ids)||!Array.isArray(modules)||modules.some(m=>!chemModules.includes(m))||typeof resume!=='boolean')throw Error('生成范围无效');
         const p=await store.load(id),{s,key}=await credentials(),c=new AbortController();running.set(id,c);
         try{
-            const result=await generateChemistry(p,ids,modules,c.signal,async(next,message)=>{next.updatedAt=new Date().toISOString();await store.save(next);progress(next,message);},chemistryCaller(s,key),resume);
+            const result=await generateChemistry(p,ids,modules,c.signal,async(next,message)=>{next.updatedAt=new Date().toISOString();await store.save(next);progress(next,message);},chemistryCaller(s,key),resume,progress);
             progress(result,'化学生成已结束，请查看各项状态并核对讲义。');
             if(!win.isFocused())win.flashFrame(true);
             try{
@@ -211,9 +211,9 @@ app.whenReady().then(async () => {
                     const tasks=result.chemistry!.tasks,complete=tasks.filter(t=>t.state==='complete').length;
                     const n=new Notification({title:'化学生成结束',body:`已生成 ${complete} 项，未完成 ${tasks.length-complete} 项；请核对后编排课件。`});
                     notifications.add(n);n.on('close',()=>notifications.delete(n));n.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();});
-                    n.on('failed',()=>progress(result,'结果已保存；系统通知发送失败，请在应用中查看。'));n.show();
+                    n.on('failed',()=>{notifications.delete(n);win.webContents.send('desk:progress',{message:'结果已保存，系统通知发送失败。'});});n.show();
                 }
-            }catch{progress(result,'结果已保存；系统通知不可用，请在应用中查看。');}
+            }catch{win.webContents.send('desk:progress',{message:'结果已保存，系统通知不可用。'});}
             return result;
         }finally{running.delete(id);}
     });

@@ -19,7 +19,7 @@ it('按原句编号取回原文，避免模型抄写造成空白差异', async (
   a.paragraphs[0].text = 'Supporting\n families matters.';
   const output = { translation: '支持家庭很重要。', teaching:null,explanations: [{ questionId: q.id, answer: q.answer, analysis: '依据原文。', evidenceIds:['C1'],practiceBlueprint:{kind:'reading',skill:demoExercise().skill,sourceTopic:'National parks'} }] };
   const fetch=vi.fn().mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(output)}}]})).mockResolvedValueOnce(Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({items:[{id:q.id,exercise:demoExercise()}]})}}]}));vi.stubGlobal('fetch',fetch);
-  const result = await generateGroup(p, a.id, [q.id], s, 'key', new AbortController().signal, () => {},false);
+  const result = await generateGroup(p, a.id, [q.id], s, 'key', new AbortController().signal, () => {});
   expect(result.questions[0].versions.at(-1)?.evidence[0].quote).toBe('Supporting\n families matters.');
   expect(fetch).toHaveBeenCalledTimes(1); // 解析入口不调用独立出题或讲义接口。
 });

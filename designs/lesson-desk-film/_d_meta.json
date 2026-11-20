@@ -1,0 +1,35 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "讲题工作台宣传短片": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-11-16T14:39:36.391Z",
+          "status": "needs-review",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          }
+        }
+      ]
+    },
+    "讲题工作台成片播放器": {
+      "versions": [
+        {
+          "path": "watch.html",
+          "createdAt": "2026-11-16T14:51:03.607Z",
+          "status": "needs-review",
+          "viewport": {
+            "width": 1920,
+            "height": 1080
+          }
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-11-16T14:39:36.393Z",
+  "updatedAt": "2026-11-16T14:51:03.609Z"
+}

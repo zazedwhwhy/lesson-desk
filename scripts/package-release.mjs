@@ -4,7 +4,7 @@ import {buildChannel} from './build-channel.mjs';
 const require=createRequire(import.meta.url),{build,Platform,Arch}=require('electron-builder');
 const channel=process.argv[2]||'stable',beta=channel==='beta';
 buildChannel(channel);
-const pkg=JSON.parse(fs.readFileSync('package.json','utf8')),version=pkg.version+(beta?'-beta.1':'');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8')),version=pkg.version+(beta?'-beta.2':'');
 if(pkg.version.includes('-'))throw Error('package.json must contain the stable base version');
 const config={directories:{output:'release/'+version},artifactName:'LessonDesk-'+version+'-Setup.${ext}'};
 if(beta)Object.assign(config,{

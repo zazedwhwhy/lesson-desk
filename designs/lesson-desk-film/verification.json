@@ -1,0 +1,16 @@
+{
+  "file": "讲题工作台-宣传片-1080p60.mp4",
+  "seconds": 150,
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "frames": 9000,
+  "video": "H.264 / yuv420p",
+  "audio": "AAC / stereo / 48000 Hz",
+  "full_decode": "passed",
+  "subtitle_cues": 29,
+  "bytes": 11804251,
+  "sha256": "81161b34b96c7f488c8cac9f07d5dd202a6dce531c33945c9da18134d9961752",
+  "visual_review": "15 scene midpoints and all 14 boundaries at ±0.15s; corrected clipping and overlapping transitions",
+  "music": "Tobu - Hope; CC BY 3.0; source and credits in music-research.md"
+}
