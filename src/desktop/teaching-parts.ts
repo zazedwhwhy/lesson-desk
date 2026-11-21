@@ -3,14 +3,13 @@ import {teachingInstructions} from '../core/teaching-instructions';
 import {GenerationContentError} from '../core/errors';
 import{z}from'zod';
 import{callAI}from'./ai';
-import{teachingCoreSchema,teachingPrompt,teachingSystem,validateTeachingCore,type Teaching,type TeachingModule}from'../core/learning';
+import{emptyTeaching,teachingCoreSchema,teachingPrompt,teachingSystem,validateTeachingCore,type Teaching,type TeachingModule}from'../core/learning';
 import{citation,createCitationCatalog,citationParagraphs,completeSentenceIds}from'../core/evidence';
 import{uid,type Project,type Settings}from'../core/model';
 import{teachingSource}from'../core/logic';
 import{ServiceStopError}from'../core/generation-model';
 import{bindStructure,bindLexicon,structureGenerationSchema,lexiconGenerationSchema}from'../core/teaching-quality';
 import{reviewContent}from'./content-review';
-export const emptyTeaching=():Teaching=>({sentences:[],structure:{genre:'',theme:'',outline:[],logic:'',examFocus:''},lexicon:[],transfer:[],imitation:[]});
 export function commitTeachingModule(p:Project,pid:string,module:TeachingModule,value:Teaching[TeachingModule]){
  const next=structuredClone(p),a=next.passages.find(a=>a.id===pid)!;const old=a.learning?.versions.find(v=>v.id===a.learning?.activeVersion),sourceText=teachingSource(next,pid),same=old&&old.sourceText===sourceText&&!a.learning?.stale;
  const data=same?structuredClone(old.data):emptyTeaching();Object.assign(data,{[module]:value});const completedModules=[...new Set([...(same?(old.completedModules||['sentences','structure','lexicon','transfer','imitation'] as TeachingModule[]):[]),module])];

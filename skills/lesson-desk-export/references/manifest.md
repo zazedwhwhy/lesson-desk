@@ -25,13 +25,13 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
 
 `type` 可取 `reading/seven/cloze/grammar/listening/writing/continuation`。`answer` 是参考答案，`analysis.answer` 是解析所得答案。选择题用同一答案编号格式，实质冲突时写真实分歧，构建器会排除该题。题面缺失、模糊或不能和答案绑定时可标 `excluded:true`，略去无法证实的解析和引用。完全读不出题干的条目只记在 `reviewNotes`，注明原卷页码。英语题图由原件保留，现有英语 PPT 导出不支持单题配图。依赖原图作答的题应留待核对。一篇的共用选项池填 `pool`，篇目译文填 `translation`。
 
-要加长难句、篇章、词汇或仿写时，给篇目加 `teaching: {modules, data}`。`modules` 使用 `sentences/structure/lexicon/imitation` 里的实选项。`data` 的固定形状如下，未选的数组留空，未选篇章时 `structure` 的字符串留空并设 `outline:[]`、`transfer:[]`。
+词汇手账用篇目的 [`lexicon` 数组](lexicon.md)。只做篇目级内容时设 `questions: []`，原文来源仍保留。要加句法拆解、篇章脉络或表达迁移，给篇目加 `teaching: {modules, data}`，`modules` 使用 `sentences/structure/imitation` 中实选的值。`data` 的固定形状如下，未选的数组留空，未选篇章时 `structure` 的字符串留空并设 `outline:[]`。同一篇可同时填写 `lexicon` 和 `teaching`。
 
 | 字段 | 每项字段 |
 | --- | --- |
 | `sentences` | `quote, translation, trunk, clauses, examTip`，可加 `parts` 数组，每项 `{text,role,explanation}` |
 | `structure` | 对象 `genre, theme, outline, logic, examFocus`，`outline` 每项 `{paragraph,endParagraph,role,summary}`，段号从 1 起 |
-| `lexicon` | `term, meaning, sourceQuote, collocations, contrast, memory, quiz, answer`，可加 `sourceForm,partOfSpeech,usageNote,memoryExample` |
+| `lexicon` | 新课件填 `[]`，词条放在篇目级 `lexicon`。旧清单用 `modules:["lexicon"]` 和 `data.lexicon`，条目字段为 `term, meaning, sourceQuote, collocations, contrast, memory, quiz, answer`，可加 `sourceForm, partOfSpeech, usageNote, memoryExample, exampleTranslation`。同一篇只用一种写法。 |
 | `imitation` | `quote, pattern, why, example, task, reference, checklist`，`checklist` 是字符串数组 |
 | `transfer` | 留空。独立考点演练填到题目的 `analysis.practice` |
 

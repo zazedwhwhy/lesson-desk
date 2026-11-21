@@ -5,11 +5,72 @@ import {strFromU8, unzipSync} from 'fflate';
 import {expect, it} from 'vitest';
 import {Store} from '../src/desktop/store';
 import {chineseAvailable} from '../src/core/chinese';
+import {defaultLessonSelection, lessonAvailability} from '../src/core/lesson-deck';
 import {buildSkillLesson} from '../skills/lesson-desk-export/tool/build-lesson';
 
 const sampleImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX3sAAAAASUVORK5CYII=', 'base64');
 
-it('同时生成可编辑课件与可导入的备份，保留原文件并跳过答案冲突题', async () => {
+function vocabularyManifest() {
+  const paragraph = {id: 'p1', text: 'The students planted trees to shade the playground.'};
+  const lexicon = [{
+    term: 'shade', sourceForm: 'shade', partOfSpeech: 'v.', meaning: '为……遮阳',
+    usageNote: 'shade 作及物动词，后接 the playground，说明种树的目的。',
+    collocations: 'shade a window 给窗户遮阳', contrast: 'shade 强调遮挡直射光；cover 强调覆盖。',
+    memoryExample: 'The curtain shades the window.', exampleTranslation: '窗帘为这扇窗遮阳。',
+    evidence: {blockId: 'p1', quote: paragraph.text},
+  }];
+  return {project: {
+    title: '校园阅读 · 词汇手账', subject: 'english',
+    sources: [{id: 'paper', name: '校园阅读', role: 'paper', kind: 'text', blocks: [paragraph]}],
+    passages: [{id: 'reading', title: 'Planting Trees', type: 'reading', paragraphs: [paragraph], lexicon}],
+    questions: [],
+  }};
+}
+
+it('只有原文时也能生成词汇手账，导入后保留原句、例句译文和自动回忆题', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-lexicon-'));
+  try {
+    const manifest = vocabularyManifest();
+    const result = await buildSkillLesson(manifest, root, path.join(root, 'output'));
+    const imported = await new Store(path.join(root, 'imported')).unpack(await readFile(result.bundle));
+    const passage = imported.passages[0];
+    expect(imported.questions).toEqual([]);
+    expect(passage.learning?.versions[0]).toMatchObject({origin: 'ai', completedModules: ['lexicon']});
+    expect(passage.learning?.versions[0].data.lexicon[0]).toMatchObject({
+      term: 'shade', sourceQuote: passage.paragraphs[0].text,
+      memoryExample: 'The curtain shades the window.', exampleTranslation: '窗帘为这扇窗遮阳。',
+      quiz: expect.stringContaining('to [1] the playground.'), answer: expect.stringContaining('shade：为……遮阳'),
+    });
+    expect(lessonAvailability(imported, passage.id, 'lexicon')).toBeNull();
+    expect(defaultLessonSelection(imported)).toEqual({
+      passageIds: ['reading'], questionIds: [], modules: {reading: ['source', 'lexicon']},
+    });
+    const ppt = unzipSync(await readFile(result.pptx));
+    const slides = Object.keys(ppt).filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name)).map(name => strFromU8(ppt[name])).join('\n');
+    expect(slides).toContain('词汇手账 · shade');
+    expect(slides).toContain('窗帘为这扇窗遮阳');
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+it.each([
+  {label: '引用不实', changes: {evidence: {blockId: 'p1', quote: 'The students painted trees.'}}, error: '引用文字与该段原文不一致'},
+  {label: '原文形态不实', changes: {sourceForm: 'shaded'}, error: '原文形态不在所引原句中'},
+])('词汇手账拒绝$label', async ({changes, error}) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-lexicon-invalid-'));
+  try {
+    const manifest = vocabularyManifest();
+    Object.assign(manifest.project.passages[0].lexicon[0], changes);
+    const output = path.join(root, 'output');
+    await expect(buildSkillLesson(manifest, root, output)).rejects.toThrow(error);
+    await expect(readFile(path.join(output, '讲评课件.lesson.zip'))).rejects.toMatchObject({code: 'ENOENT'});
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+it('同包生成讲评与词汇手账，保留原文件并跳过答案冲突题', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-'));
   try {
     const original = Buffer.from('%PDF-1.4\n% synthetic attachment test\n');
@@ -18,7 +79,7 @@ it('同时生成可编辑课件与可导入的备份，保留原文件并跳过�
     const project = {
       title: '每周阅读讲评', subject: 'english',
       sources: [{id: 'paper', name: 'paper.pdf', role: 'paper', kind: 'pdf', blocks: [paragraph]}],
-      passages: [{id: 'reading', title: 'Planting Trees', type: 'reading', paragraphs: [paragraph]}],
+      passages: [{...vocabularyManifest().project.passages[0], paragraphs: [paragraph]}],
       questions: [21, 22].map(number => ({
         id: `q${number}`, number: String(number), passageId: 'reading', type: 'reading',
         sourceId: 'paper', stem: 'Why did the students plant trees?', options: ['A. Shade', 'B. Fruit'], answer: number === 21 ? 'A' : 'B',
@@ -30,11 +91,13 @@ it('同时生成可编辑课件与可导入的备份，保留原文件并跳过�
     const imported = await store.unpack(await readFile(result.bundle));
     expect(imported.questions.map(q => [q.answer, q.confirmed, q.excluded, q.versions[0].conflict])).toEqual([['A', false, false, false], ['B', false, true, true]]);
     expect(imported.organizationIssues).toEqual([expect.stringContaining('第 22 题')]);
+    expect(imported.passages[0].learning?.versions[0].data.lexicon[0].term).toBe('shade');
     expect(await readFile(path.join(store.dir(imported.id), imported.sources[0].asset!))).toEqual(original);
     const ppt = unzipSync(await readFile(result.pptx));
     const slides = Object.keys(ppt).filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name)).map(name => strFromU8(ppt[name]));
     expect(slides.join()).toContain('第 21 题');
     expect(slides.join()).toContain('to shade the playground');
+    expect(slides.join()).toContain('词汇手账 · shade');
     expect(slides.join()).not.toContain('第 22 题');
     expect(await readFile(result.review, 'utf8')).toContain('第 22 题');
   } finally {
