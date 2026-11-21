@@ -11,7 +11,10 @@ export const lessonModuleNames: Record<LessonModule, string> = {
   source: '英文原文', translation: '中文译文', analysis: '逐题讲评', practice: '考点演练',
   sentences: '句法拆解', structure: '篇章脉络', lexicon: '词汇手账', imitation: '表达迁移', special: '专项讲评'
 };
-export type LessonSelection = { passageIds: string[]; questionIds: string[]; modules: Record<string, LessonModule[]> };
+export type LessonSelection = {
+  passageIds: string[]; questionIds: string[]; modules: Record<string, LessonModule[]>;
+  questionIdsByModule?: Partial<Record<'analysis' | 'practice', string[]>>;
+};
 export type LessonBlock = { label: string; text: string; emphasis?: boolean };
 export type LessonSlide = { id: string; kind: LessonModule | 'question' | 'practice-answer' | 'imitation-answer'; title: string; section: string; blocks: LessonBlock[]; body: string[]; questionId?: string; passageId: string };
 
@@ -20,6 +23,19 @@ function versionFor(p: Project, passageId: string) {
   const learning = passage?.learning;
   const version = learning?.versions.find(v => v.id === learning.activeVersion);
   return !learning?.stale && version?.sourceText === teachingSource(p, passageId) ? version : undefined;
+}
+function specialTargets(p: Project, passageId: string) {
+  const passage = p.passages.find(a => a.id === passageId);
+  const kind = passage && applicableSpecial(passage.type)[0];
+  const v = kind && passage.special?.versions.find(version => version.id === passage.special?.active[kind]);
+  return v && lessonAvailability(p, passageId, 'special') === null
+    ? v.result.items.map(item => item.question_id ?? item.blank_id) : [];
+}
+
+export function lessonQuestionReason(p: Project, q: Question) {
+  const analysis = lessonAvailability(p, q.passageId, 'analysis', q.id);
+  return !analysis || !lessonAvailability(p, q.passageId, 'practice', q.id)
+    || q.confirmed && !q.excluded && specialTargets(p, q.passageId).includes(q.id) ? null : analysis;
 }
 export function lessonAvailability(p: Project, passageId: string, module: LessonModule, questionId?: string): string | null {
   const a = p.passages.find(a => a.id === passageId);
@@ -51,23 +67,26 @@ export function lessonAvailability(p: Project, passageId: string, module: Lesson
 }
 export function defaultLessonSelection(p: Project): LessonSelection {
   const questions = p.questions.filter(q => !q.excluded && lessonAvailability(p, q.passageId, 'analysis', q.id) === null);
-  const entries = p.passages.flatMap(({id}) => {
+  const entries = p.passages.flatMap(({id, type}) => {
     const selected = questions.filter(q => q.passageId === id);
+    if (!selected.length) selected.push(...p.questions.filter(q => q.passageId === id && lessonQuestionReason(p, q) === null));
     const modules = lessonModules.filter(module => {
       if (module === 'analysis' || module === 'practice') {
         return selected.length > 0
           ? selected.every(q => lessonAvailability(p, id, module, q.id) === null)
           : module === 'practice' && lessonAvailability(p, id, module) === null;
       }
-      if (module === 'special' && !selected.length) return false;
+      if (module === 'special' && ['reading', 'listening', 'seven', 'cloze'].includes(type)) {
+        if (!selected.some(q => specialTargets(p, id).includes(q.id))) return false;
+      }
       return lessonAvailability(p, id, module) === null;
     });
-    return selected.length || modules.some(module => module !== 'source') ? [[id, modules] as const] : [];
+    return selected.length || modules.some(module => module !== 'source') ? [{id, modules, selected}] : [];
   });
   return {
-    passageIds: entries.map(([id]) => id),
-    questionIds: questions.map(q => q.id),
-    modules: Object.fromEntries(entries),
+    passageIds: entries.map(({id}) => id),
+    questionIds: p.questions.filter(q => entries.some(({selected}) => selected.includes(q))).map(q => q.id),
+    modules: Object.fromEntries(entries.map(({id, modules}) => [id, modules])),
   };
 }
 export function legacyLessonSelection(p: Project, ids: string[], includeTeaching = false): LessonSelection {
@@ -92,8 +111,9 @@ export function lessonSelectionIssues(p: Project, selection: LessonSelection): s
     const qs = p.questions.filter(q => selection.questionIds.includes(q.id) && q.passageId === pid && !q.excluded);
     for (const m of selection.modules[pid] || []) {
       if (m === 'analysis' || m === 'practice') {
-        for (const q of qs) { const reason = lessonAvailability(p, pid, m, q.id); if (reason) issues.push(`${a.title} · 第${q.number}题 · ${lessonModuleNames[m]}：${reason}`); }
-        if (!qs.length && m === 'practice') { const reason = lessonAvailability(p, pid, m); if (reason) issues.push(`${a.title} · 考点演练：${reason}`); }
+        const targets = moduleQuestions(selection, qs, m);
+        for (const q of targets) { const reason = lessonAvailability(p, pid, m, q.id); if (reason) issues.push(`${a.title} · 第${q.number}题 · ${lessonModuleNames[m]}：${reason}`); }
+        if (!targets.length && m === 'practice') { const reason = lessonAvailability(p, pid, m); if (reason) issues.push(`${a.title} · 考点演练：${reason}`); }
       } else {
         const reason = lessonAvailability(p, pid, m);
         if (reason) issues.push(`${a.title} · ${lessonModuleNames[m]}：${reason}`);
@@ -106,6 +126,11 @@ export function lessonSelectionIssues(p: Project, selection: LessonSelection): s
     }
   }
   return issues;
+}
+
+function moduleQuestions(selection: LessonSelection, questions: Question[], module: 'analysis' | 'practice') {
+  const ids = selection.questionIdsByModule?.[module];
+  return ids ? questions.filter(q => ids.includes(q.id)) : questions;
 }
 
 const clean = (value: unknown) => String(value ?? '').trim();
@@ -134,15 +159,17 @@ export function buildLessonDeck(p: Project, selection: LessonSelection, layout:S
   for (const a of p.passages.filter(a => selection.passageIds.includes(a.id))) {
     const qs = p.questions.filter(q => q.passageId === a.id && !q.excluded && selection.questionIds.includes(q.id));
     const chosen = selection.modules[a.id] || [];
+    const explained = chosen.includes('analysis') ? moduleQuestions(selection, qs, 'analysis') : [];
+    const practiced = chosen.includes('practice') ? moduleQuestions(selection, qs, 'practice') : [];
     if (chosen.includes('source')) add('source', a.title, '英文原文', blocks(block('', a.paragraphs.map(b => b.text).join('\n\n')), block('共用选项池', a.pool)), a.id);
     if (chosen.includes('translation')) add('translation', a.title, '中文译文', blocks(block('', a.translation)), a.id);
     for (const q of qs) {
-      if (chosen.includes('analysis') || chosen.includes('practice')) add('question', `第 ${q.number} 题`, a.title, blocks(block('', q.stem), block('选项', optionEntries(q.options).map(o=>o.label+'. '+o.text).join('\n'))), a.id, q.id);
-      if (chosen.includes('analysis')) {
+      if (explained.includes(q) || practiced.includes(q)) add('question', `第 ${q.number} 题`, a.title, blocks(block('', q.stem), block('选项', optionEntries(q.options).map(o=>o.label+'. '+o.text).join('\n'))), a.id, q.id);
+      if (explained.includes(q)) {
         const e = active(q)!;
         add('analysis', `第 ${q.number} 题 · 逐题讲评`, a.title, blocks(block(q.answer.trim()?'参考答案':'AI 建议答案（待核实）', q.answer.trim()||e.answer, true), block('AI 解析', e.analysis), ...e.evidence.map((x, i) => block(`原文依据 ${i + 1}`, x.quote))), a.id, q.id);
       }
-      if (chosen.includes('practice')) {
+      if (practiced.includes(q)) {
         const exercise = questionExercise(p, q)!;
         add('practice', `第 ${q.number} 题 · 考点演练`, a.title, blocks(block('AI 新编练习', exerciseText(exercise))), a.id, q.id);
         add('practice-answer', `第 ${q.number} 题 · 演练讲评`, a.title, blocks(block('参考答案与解析', exerciseAnswerText(exercise))), a.id, q.id);

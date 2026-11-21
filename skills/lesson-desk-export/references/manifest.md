@@ -35,7 +35,7 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
 | `imitation` | `quote, pattern, why, example, task, reference, checklist`，`checklist` 是字符串数组 |
 | `transfer` | 留空。独立考点演练填到题目的 `analysis.practice` |
 
-`analysis.practice` 为 `{kind,skill,sourceTopic,newTopic,material,stem,options,answer,analysis,point}`。英文新材料应自足，题型与原题一致。要让一个篇目的逐题演练进入 PPT，请给本次选入的各题提供有效练习。
+`questions[].practice` 为 `{kind,skill,sourceTopic,newTopic,material,stem,options,answer,analysis,point}`，可单独生成。旧清单也可用 `analysis.practice`，每题选一种写法。英文新材料要自足，题型与原题一致。专项讲评的 `passages[].special`、校对和修正的输入见 [三科备课功能](workflows.md)。
 
 ## 语文
 
@@ -54,4 +54,4 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
 
 ## 打包约定
 
-两种输出通过工作台本身的项目校验与课件分页逻辑生成。原件原字节写入课件包。`project.json` 由脚本生成。待核对 PPT 的放映页范围按当次有效内容决定，包里仍可保留需补充的题和待确认讲义。教师审核后再从应用编排当前课堂。当前版本使用工作台内置纸面教案版式。
+原件原字节写入课件包。`project.json` 由脚本生成。待核对 PPT 的放映范围按当次有效内容决定，课件包保留需补充的题和待确认讲义。只需要课件包和核对清单时用 `--bundle-only`。PPT 使用工作台内置纸面教案版式。
