@@ -126,3 +126,4 @@ window.pose=t=>{
  renderer.render(scene,camera);
 };
 window.pose(0);window.ready=true;
+export {T,scene,camera,renderer,back,gate,read,iris,front,cursor,blades,ring,box,mesh,mat,copper,gun,black,silver,print,cue};
