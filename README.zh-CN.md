@@ -32,7 +32,7 @@
 - 自选篇目和模块，按课堂顺序编排。应用内放映与可编辑 PPT 使用相同页序，支持自动分页、练习与答案分开呈现。
 - 提供连续讲评、侧栏板书和逐步揭示三种课堂版式，也可导入 `.pptx` / `.potx` 模板，沿用背景、配色和字体。
 - 课件保存在本机，可导出备份包。Beta 另提供错题本，收录整题或片段，用于复习与复讲。
-- 可在支持的 AI 客户端使用独立分发的[讲题工作台 Skill](https://github.com/zazedwhwhy/lesson-desk-skill)，生成可编辑 PPT 和可直接导入工作台的课件包。
+- 也可通过 [讲题工作台 Skill](https://github.com/zazedwhwhy/lesson-desk-skill) 在 Hermes Agent 等客户端生成可编辑 PPT 与课件包。Skill v0.3.0 起支持单独生成词汇手账，或与逐题讲评一起生成。导入和查看课件无需配置工作台 API。[安装与使用](skills/lesson-desk-export/INSTALL.zh-CN.md)
 
 ## 开始使用
 

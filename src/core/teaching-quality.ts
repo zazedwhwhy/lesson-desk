@@ -39,9 +39,15 @@ export function bindStructure(raw:z.infer<typeof structureGenerationSchema>,cata
 }
 
 export function bindLexicon(raw:z.infer<typeof lexiconGenerationSchema>,catalog:Catalog):Teaching['lexicon']{
+ return bindLexiconEntries(raw,w=>citation(catalog,w.sourceCitationId).quote);
+}
+
+type LexiconCandidate = Omit<z.infer<typeof lexiconGenerationSchema>[number], 'sourceCitationId'>;
+
+export function bindLexiconEntries<T extends LexiconCandidate>(raw: T[], quoteFor: (word: T) => string): Teaching['lexicon'] {
  const seen=new Set<string>();
  return raw.map(w=>{
-  const sourceQuote=citation(catalog,w.sourceCitationId).quote;
+  const sourceQuote=quoteFor(w);
   const pattern=new RegExp('(?<![A-Za-z])'+w.sourceForm.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+')+'(?![A-Za-z])','i');
   const match=sourceQuote.match(pattern);
   if(!match||!/[a-z]/i.test(w.sourceForm)||/[\u3400-\u9fff]/u.test(w.sourceForm))throw new GenerationContentError('词条 '+w.term+' 的原文形态不在所引原句中：'+w.sourceForm);

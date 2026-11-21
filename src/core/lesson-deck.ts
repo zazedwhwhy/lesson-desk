@@ -50,15 +50,25 @@ export function lessonAvailability(p: Project, passageId: string, module: Lesson
   return data[module].length ? null : '模块没有可用内容';
 }
 export function defaultLessonSelection(p: Project): LessonSelection {
-  const questionIds = p.questions.filter(q => !q.excluded && lessonAvailability(p, q.passageId, 'analysis', q.id) === null).map(q => q.id);
-  const passageIds = p.passages.filter(a => p.questions.some(q => questionIds.includes(q.id) && q.passageId === a.id)).map(a => a.id);
-  const modules = Object.fromEntries(passageIds.map(pid => {
-    const qs = p.questions.filter(q => questionIds.includes(q.id) && q.passageId === pid);
-    return [pid, lessonModules.filter(m => m === 'analysis' || m === 'practice'
-      ? (qs.length > 0 && qs.every(q => lessonAvailability(p, pid, m, q.id) === null)) || (m === 'practice' && !qs.length && lessonAvailability(p, pid, m) === null)
-      : lessonAvailability(p, pid, m) === null)];
-  })) as Record<string, LessonModule[]>;
-  return { passageIds, questionIds, modules };
+  const questions = p.questions.filter(q => !q.excluded && lessonAvailability(p, q.passageId, 'analysis', q.id) === null);
+  const entries = p.passages.flatMap(({id}) => {
+    const selected = questions.filter(q => q.passageId === id);
+    const modules = lessonModules.filter(module => {
+      if (module === 'analysis' || module === 'practice') {
+        return selected.length > 0
+          ? selected.every(q => lessonAvailability(p, id, module, q.id) === null)
+          : module === 'practice' && lessonAvailability(p, id, module) === null;
+      }
+      if (module === 'special' && !selected.length) return false;
+      return lessonAvailability(p, id, module) === null;
+    });
+    return selected.length || modules.some(module => module !== 'source') ? [[id, modules] as const] : [];
+  });
+  return {
+    passageIds: entries.map(([id]) => id),
+    questionIds: questions.map(q => q.id),
+    modules: Object.fromEntries(entries),
+  };
 }
 export function legacyLessonSelection(p: Project, ids: string[], includeTeaching = false): LessonSelection {
   const questionIds = p.questions.filter(q => ids.includes(q.id) && !q.excluded).map(q => q.id);

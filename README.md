@@ -32,7 +32,7 @@ The app interface is currently in Chinese. This repository provides English and 
 - Arrange topics and modules in teaching order. Present in the app or export editable PowerPoint slides with the same page order, separate exercise and answer pages, and automatic pagination.
 - Use continuous review, side-by-side board notes or step-by-step reveal. Import a `.pptx` / `.potx` template to reuse its background, colors and fonts.
 - Save courseware locally and export backup packages. Beta also supports collecting questions and excerpts into a mistake notebook for review.
-- Use the separately distributed [Lesson Desk Skill](https://github.com/zazedwhwhy/lesson-desk-skill) to prepare editable PowerPoint files and importable courseware packages in a compatible AI client.
+- Use the [Lesson Desk Skill](https://github.com/zazedwhwhy/lesson-desk-skill) in Hermes Agent or another compatible AI client to prepare editable PowerPoint files and importable courseware. Skill v0.3.0 supports English vocabulary notebooks on their own or alongside exam review. Importing and opening the package requires no API key in Lesson Desk. [Installation and use](skills/lesson-desk-export/INSTALL.zh-CN.md)
 
 ## Get started
 
