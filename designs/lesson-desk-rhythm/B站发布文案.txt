@@ -1,0 +1,18 @@
+标题
+从一张试卷，到一堂课｜讲题工作台宣传片《对焦》加长版
+
+简介
+“我们看的是哪个温度？”
+
+老师把手指停在 20 ℃。沿着同一个温度往上看，两个点一高一低，答案就有了依据。
+
+这支 4 分 45 秒的短片，从一道化学读图题讲起。跟着老师核对原卷，改下自己的追问，把图投到课堂，再打开 PowerPoint 改一个字。翻过这一页，英语课读一个改变句意的 Yet，语文课读《江雪》里的“孤”和“独”，化学课看石灰水怎样从澄清变浑浊。
+
+想拿自己的卷子试试，可以先打开讲题工作台里的「教学示例」。
+项目主页：https://github.com/zazedwhwhy/lesson-desk
+
+音乐署名
+Tobu — Hope（原曲由 NCS 发行）
+原曲：https://soundcloud.com/7obu/tobu-hope-original-mix
+许可：Creative Commons Attribution（CC BY）。曲目使用说明：https://tobu.io/Hope/download
+本片节选了原曲，调整音量与淡入淡出，并混入翻页、机械和教室环境拟音。
