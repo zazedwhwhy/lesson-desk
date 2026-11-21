@@ -2,19 +2,22 @@ import {z} from 'zod';
 import {emptyProject, passageSchema, projectSchema, questionSchema, sourceSchema, uid, type Project} from '../../../src/core/model';
 import {resolveEvidence} from '../../../src/core/evidence';
 import {exerciseSchema, validateExercise} from '../../../src/core/exercise';
-import {teachingSchema, validateTeachingCore} from '../../../src/core/learning';
+import {emptyTeaching, teachingSchema, validateTeachingCore, type TeachingModule} from '../../../src/core/learning';
+import {bindLexiconEntries, lexiconGenerationSchema} from '../../../src/core/teaching-quality';
 import {teachingSource} from '../../../src/core/logic';
 import {applicableChineseModules, chineseFingerprint, chineseGroupSchema, validateChineseResult} from '../../../src/core/chinese';
 import {chemFingerprint, chemImageSchema, chemModules, chemQuestionSchema, chemResultSchema} from '../../../src/core/chemistry';
 
 const text = z.string().trim().min(1);
 const sourceInput = sourceSchema.pick({id: true, name: true, role: true, kind: true, blocks: true, pageCount: true});
-const analysis = z.object({answer: text, text, evidence: z.array(z.object({blockId: text, quote: text})).default([]), practice: exerciseSchema.optional()});
+const evidence = z.object({blockId: text, quote: text});
+const analysis = z.object({answer: text, text, evidence: z.array(evidence).default([]), practice: exerciseSchema.optional()});
 const englishQuestion = questionSchema.omit({confirmed: true, stale: true, excluded: true, versions: true, activeVersion: true}).extend({
   stem: text, answer: z.string().default(''), options: z.array(z.string()).default([]), excluded: z.boolean().default(false), analysis: analysis.optional(),
 });
 const englishPassage = passageSchema.omit({translationSource: true, learning: true, special: true}).extend({
   teaching: z.object({modules: z.array(z.enum(['sentences', 'structure', 'lexicon', 'imitation'])).min(1), data: teachingSchema}).optional(),
+  lexicon: z.array(lexiconGenerationSchema.element.omit({sourceCitationId: true}).extend({evidence})).min(1).max(20).optional(),
 });
 const chineseMaterial = chineseGroupSchema.shape.materials.element.omit({image: true, imageConfirmed: true}).extend({imageFile: text.optional()});
 const chineseGroup = chineseGroupSchema.omit({materials: true, versions: true}).extend({
@@ -62,7 +65,7 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
     unique(input.passages.map(p => p.id), '篇目 ID');
     unique(input.questions.map(q => q.id), '题目 ID');
     unique(input.questions.map(q => q.number), '题号');
-    project.passages = input.passages.map(({teaching: _teaching, ...passage}) => passage);
+    project.passages = input.passages.map(({teaching: _teaching, lexicon: _lexicon, ...passage}) => passage);
     for (const {analysis: notes, ...question} of input.questions) {
       const passage = project.passages.find(p => p.id === question.passageId);
       if (!passage) throw Error(`第 ${question.number} 题：篇目不存在`);
@@ -78,15 +81,22 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
       const excluded = question.excluded || conflict;
       project.questions.push({...question, excluded, confirmed: teacherReviewed && !excluded, stale: false, versions: version ? [version] : [], activeVersion: version?.id});
     }
-    for (const passage of project.passages) {
+    for (const [index, passage] of project.passages.entries()) {
       unique(passage.paragraphs.map(p => p.id), `${passage.title}的段落 ID`);
       const sourceText = teachingSource(project, passage.id);
       if (passage.translation) passage.translationSource = sourceText;
-      const teaching = input.passages.find(p => p.id === passage.id)?.teaching;
-      if (!teaching) continue;
-      validateTeachingCore(teaching.data, passage.paragraphs, teaching.modules);
+      const {teaching, lexicon} = input.passages[index];
+      if (!teaching && !lexicon) continue;
+      const modules: TeachingModule[] = [...new Set(teaching?.modules)];
+      const data = teaching?.data ?? emptyTeaching();
+      if (lexicon) {
+        if (modules.includes('lexicon') || data.lexicon.length) throw Error(`${passage.title}：词汇手账重复提供，请只填写篇目的 lexicon 或旧版 teaching.data.lexicon`);
+        data.lexicon = bindLexiconEntries(lexicon, word => resolveEvidence(passage.paragraphs, word.evidence).quote);
+        modules.push('lexicon');
+      }
+      validateTeachingCore(data, passage.paragraphs, modules);
       const id = uid();
-      passage.learning = {stale: false, activeVersion: id, remembered: [], versions: [{id, createdAt: project.updatedAt, origin: 'ai', sourceText, formatVersion: 3, completedModules: teaching.modules, data: {...teaching.data, transfer: []}}]};
+      passage.learning = {stale: false, activeVersion: id, remembered: [], versions: [{id, createdAt: project.updatedAt, origin: 'ai', sourceText, formatVersion: 3, completedModules: modules, data: {...data, transfer: []}}]};
     }
   } else if (input.subject === 'chinese') {
     const data = project.chinese!;
