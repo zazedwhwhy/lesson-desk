@@ -64,14 +64,18 @@ function notifyGeneration(p:Project){
         const notification=new Notification(notice);
         notifications.add(notification);notification.on('close',()=>notifications.delete(notification));
         notification.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();win.flashFrame(false);});
-        notification.on('failed',()=>{notifications.delete(notification);deliveryError('生成结果已保存，但系统通知发送失败，请在 Windows 通知设置中检查讲题工作台。');});
+        notification.on('failed',()=>{
+            notifications.delete(notification);
+            const settings=process.platform==='win32'?'Windows 通知设置':'系统通知设置';
+            deliveryError(`生成结果已保存，但系统通知发送失败，请在 ${settings} 中检查讲题工作台。`);
+        });
         notification.show();
     }catch{deliveryError('生成结果已保存，但系统通知发送失败，请在应用内查看进度。');}
 }
 app.whenReady().then(async () => {
     initializeDiagnostics(app.getPath('userData'));
     await initializePrompts(app.getPath('userData'));
-    app.setAppUserModelId(beta?'top.rainhollow.lessondesk.beta':'top.rainhollow.lessondesk');
+    if(process.platform==='win32')app.setAppUserModelId(beta?'top.rainhollow.lessondesk.beta':'top.rainhollow.lessondesk');
     store = new Store(path.join(app.getPath('userData'), 'projects'));
     const firstLaunch=await fs.access(store.root).then(()=>false,(error:NodeJS.ErrnoException)=>{if(error.code==='ENOENT')return true;throw error;});
     if (!(await store.list()).length&&firstLaunch)

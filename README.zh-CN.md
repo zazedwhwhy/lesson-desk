@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-把手头的试卷整理成讲评教案和课堂课件。讲题工作台是一款 Windows 桌面应用，支持英语、语文与化学。导入试卷、核对题目和答案后，可以按需生成讲解，继续修改，再按授课顺序编排和导出。
+把手头的试卷整理成讲评教案和课堂课件。讲题工作台是一款桌面应用，支持英语、语文与化学。导入试卷、核对题目和答案后，可以按需生成讲解，继续修改，再按授课顺序编排和导出。
 
 [下载 Windows 版](https://github.com/zazedwhwhy/lesson-desk/releases/latest) · [Beta 测试版](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) · [反馈问题](https://github.com/zazedwhwhy/lesson-desk/issues) · [MIT 许可证](LICENSE)
 
@@ -16,6 +16,8 @@
 | 测试版 | [0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) | 包含实验性的错题本，标记为预发布 |
 
 在发布页下载 Windows x64 安装器 `LessonDesk-<version>-Setup.exe`。每版附有 `SHA256SUMS.txt` 校验文件。
+
+macOS 0.18.0 试用版提供 Apple 芯片和 Intel 芯片两种 DMG。下载位置和测试步骤见 [macOS 试用说明](docs/releases/0.18.0.md#macos-试用包)。
 
 两版使用独立的安装名称和数据目录。Beta 首次启动复制正式版已有数据，之后分别保存，不双向同步。正式版移除错题本功能时保留原有错题数据。
 
@@ -84,6 +86,7 @@ npm start
 | `npm test` | 使用合成材料与模拟请求运行本地自动化测试 |
 | `npm run check:public` | 检查已跟踪文件中的私人数据与凭据 |
 | `npm run build` / `npm run package` | 构建 / 打包正式版 |
+| `npm run package:mac` | 在 macOS 上生成当前架构的 0.18.0 试用 DMG |
 | `npm run build:beta` / `npm run package:beta` | 构建 / 打包测试版 |
 
 安装器输出到 `release/`，两版构建产物分别保存。应用使用 Electron、React 与 TypeScript。

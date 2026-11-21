@@ -2,7 +2,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Prepare exam explanations and classroom slides from your own papers. Lesson Desk is a Windows desktop app for teachers working with English, Chinese language and literature, and chemistry. Import a paper, check the questions and answers, generate the teaching material you need, then edit and arrange it for class.
+Prepare exam explanations and classroom slides from your own papers. Lesson Desk is a desktop app for teachers working with English, Chinese language and literature, and chemistry. Import a paper, check the questions and answers, generate the teaching material you need, then edit and arrange it for class.
 
 [Download for Windows](https://github.com/zazedwhwhy/lesson-desk/releases/latest) · [Beta releases](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) · [Report an issue](https://github.com/zazedwhwhy/lesson-desk/issues) · [MIT license](LICENSE)
 
@@ -16,6 +16,8 @@ Prepare exam explanations and classroom slides from your own papers. Lesson Desk
 | Beta | [0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) | Includes the experimental mistake notebook; marked as a prerelease |
 
 Download the `LessonDesk-<version>-Setup.exe` asset for Windows x64. Each release includes `SHA256SUMS.txt`.
+
+The macOS 0.18.0 preview builds separate DMGs for Apple silicon and Intel. See the [download and manual test guide](docs/releases/0.18.0.md#macos-试用包) (Chinese).
 
 Stable and Beta have separate installation names and data folders. On its first launch, Beta copies existing stable data; subsequent changes stay in their respective editions and do not sync. Removing the notebook from Stable does not delete existing notebook data.
 
@@ -84,6 +86,7 @@ npm start
 | `npm test` | Local automated tests using synthetic data and mocked requests |
 | `npm run check:public` | Check tracked content for private data and credentials |
 | `npm run build` / `npm run package` | Build / package Stable |
+| `npm run package:mac` | Build the preview DMG on macOS for the current architecture |
 | `npm run build:beta` / `npm run package:beta` | Build / package Beta |
 
 Installers are written to `release/`. Stable and Beta build outputs are separate. The app uses Electron, React and TypeScript.

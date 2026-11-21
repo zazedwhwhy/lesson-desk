@@ -10,6 +10,7 @@
     "start": "electron .",
     "test": "vitest run",
     "package": "node scripts/package-release.mjs stable",
+    "package:mac": "node scripts/package-release.mjs stable mac",
     "check:public": "node scripts/check-public-content.mjs",
     "build:beta": "node scripts/build-channel.mjs beta",
     "package:beta": "node scripts/package-release.mjs beta"
@@ -63,6 +64,14 @@
       "target": "nsis",
       "signExecutable": false,
       "icon": "assets/app-icon.ico"
+    },
+    "mac": {
+      "icon": "assets/app-icon.svg",
+      "category": "public.app-category.education",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
+      "artifactName": "LessonDesk-${version}-macOS-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
