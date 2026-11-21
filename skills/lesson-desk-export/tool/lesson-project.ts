@@ -2,22 +2,35 @@ import {z} from 'zod';
 import {emptyProject, passageSchema, projectSchema, questionSchema, sourceSchema, uid, type Project} from '../../../src/core/model';
 import {resolveEvidence} from '../../../src/core/evidence';
 import {exerciseSchema, validateExercise} from '../../../src/core/exercise';
-import {emptyTeaching, teachingSchema, validateTeachingCore, type TeachingModule} from '../../../src/core/learning';
+import {emptyTeaching, teachingSchema, transferFromExercise, validateTeachingCore, type TeachingModule} from '../../../src/core/learning';
 import {bindLexiconEntries, lexiconGenerationSchema} from '../../../src/core/teaching-quality';
 import {teachingSource} from '../../../src/core/logic';
-import {applicableChineseModules, chineseFingerprint, chineseGroupSchema, validateChineseResult} from '../../../src/core/chinese';
-import {chemFingerprint, chemImageSchema, chemModules, chemQuestionSchema, chemResultSchema} from '../../../src/core/chemistry';
+import {applicableChineseModules, chineseFingerprint, chineseGroupSchema, chineseReviewSchema, validateChineseResult} from '../../../src/core/chinese';
+import {chemFingerprint, chemImageSchema, chemModules, chemQuestionSchema, chemResultSchema, chemistryReviewSchema} from '../../../src/core/chemistry';
+import {sourceFigureSchema} from '../../../src/core/chemistry-figures';
+import {specialFingerprint, specialInputSchema, specialKinds, specialNames, specialSchemas} from '../../../src/core/special';
+import {prepareSpecial, validateSpecialResult} from '../../../src/core/special-workflow';
+import {correctionPlanSchema} from '../../../src/core/correction';
+import {mergedProofreadResultSchema} from '../../../src/core/proofread';
 
 const text = z.string().trim().min(1);
-const sourceInput = sourceSchema.pick({id: true, name: true, role: true, kind: true, blocks: true, pageCount: true});
+const sourceInput = sourceSchema.pick({id: true, name: true, role: true, kind: true, blocks: true, pageCount: true}).extend({
+  ocr: z.array(z.object({page: z.number().int().min(1).max(100), blank: z.boolean().default(false), uncertain: z.array(text).default([])})).optional(),
+  figures: z.array(sourceFigureSchema.omit({data: true}).extend({file: text})).optional(),
+});
 const evidence = z.object({blockId: text, quote: text});
 const analysis = z.object({answer: text, text, evidence: z.array(evidence).default([]), practice: exerciseSchema.optional()});
 const englishQuestion = questionSchema.omit({confirmed: true, stale: true, excluded: true, versions: true, activeVersion: true}).extend({
   stem: text, answer: z.string().default(''), options: z.array(z.string()).default([]), excluded: z.boolean().default(false), analysis: analysis.optional(),
+  practice: exerciseSchema.optional(),
 });
+const specialInput = z.union(specialKinds.map(kind => z.object({
+  kind: z.literal(kind), input: specialInputSchema, result: specialSchemas[kind],
+})));
 const englishPassage = passageSchema.omit({translationSource: true, learning: true, special: true}).extend({
   teaching: z.object({modules: z.array(z.enum(['sentences', 'structure', 'lexicon', 'imitation'])).min(1), data: teachingSchema}).optional(),
   lexicon: z.array(lexiconGenerationSchema.element.omit({sourceCitationId: true}).extend({evidence})).min(1).max(20).optional(),
+  special: specialInput.optional(),
 });
 const chineseMaterial = chineseGroupSchema.shape.materials.element.omit({image: true, imageConfirmed: true}).extend({imageFile: text.optional()});
 const chineseGroup = chineseGroupSchema.omit({materials: true, versions: true}).extend({
@@ -29,11 +42,14 @@ const chemistryQuestion = chemQuestionSchema.omit({images: true, versions: true,
   images: z.array(chemImageSchema.omit({data: true, confirmed: true, automatic: true}).extend({file: text})).max(12).default([]),
   versions: z.array(z.object({module: z.enum(chemModules), result: chemResultSchema})).default([]),
 });
-const manifestSchema = z.object({
+export const manifestSchema = z.object({
   project: z.discriminatedUnion('subject', [
-    z.object({title: text, subject: z.literal('english'), sources: z.array(sourceInput), passages: z.array(englishPassage), questions: z.array(englishQuestion)}),
-    z.object({title: text, subject: z.literal('chinese'), sources: z.array(sourceInput), groups: z.array(chineseGroup)}),
-    z.object({title: text, subject: z.literal('chemistry'), sources: z.array(sourceInput), questions: z.array(chemistryQuestion)}),
+    z.object({title: text, subject: z.literal('english'), sources: z.array(sourceInput), passages: z.array(englishPassage), questions: z.array(englishQuestion),
+      review: z.object({includeExplanations: z.boolean().default(false), result: mergedProofreadResultSchema}).optional(),
+      correction: z.object({includeExplanations: z.boolean().default(false), plan: correctionPlanSchema}).optional(),
+    }),
+    z.object({title: text, subject: z.literal('chinese'), sources: z.array(sourceInput), groups: z.array(chineseGroup), review: chineseReviewSchema.optional()}),
+    z.object({title: text, subject: z.literal('chemistry'), sources: z.array(sourceInput), questions: z.array(chemistryQuestion), review: chemistryReviewSchema.optional()}),
   ]),
   assets: z.record(z.string(), text).default({}),
   reviewNotes: z.array(text).default([]),
@@ -54,7 +70,33 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
   const input = manifest.project;
   const project = emptyProject(input.title, input.subject);
   const issues = [...manifest.reviewNotes];
-  project.sources = input.sources;
+  project.sources = await Promise.all(input.sources.map(async ({ocr, figures, ...source}) => {
+    if (figures?.length && (input.subject !== 'chemistry' || source.role !== 'paper' || source.kind === 'text'))
+      throw Error(`${source.name}：题图候选需要化学原卷 PDF 或 Word`);
+    if (figures) unique(figures.map(figure => figure.id), `${source.name} 的题图 ID`);
+    const prepared = {...source, figures: figures && await Promise.all(figures.map(async ({file, ...figure}) => {
+      const {x, y, width, height} = figure.box;
+      if (x + width > 1000 || y + height > 1000) throw Error(`${figure.name}：题图坐标超出原页`);
+      if (source.kind === 'pdf' && (!figure.page || figure.page !== figure.unit || source.pageCount && figure.page > source.pageCount))
+        throw Error(`${figure.name}：题图页码或原页单元无效`);
+      return {...figure, data: await loadImage(file)};
+    }))};
+    if (!ocr?.length) return prepared;
+    if (source.kind !== 'pdf' || !source.pageCount) throw Error(`${source.name}：OCR 结果需要原 PDF 和总页数`);
+    unique(ocr.map(page => String(page.page)), `${source.name} 的 OCR 页码`);
+    const ocrTranscriptions = ocr.map(({page, blank, uncertain}) => {
+      if (page > source.pageCount!) throw Error(`${source.name}：OCR 页码 ${page} 超出总页数`);
+      const blocks = source.blocks.filter(block => block.page === page).map(block => block.text).filter(line => line.trim());
+      if (blank === !!blocks.length) throw Error(`${source.name} 第 ${page} 页：空白状态与 OCR 转录不符`);
+      if (!teacherReviewed) issues.push(`${source.name} 第 ${page} 页：请对照原图核对识别文字`);
+      issues.push(...uncertain.map(note => `${source.name} 第 ${page} 页：${note}`));
+      return {page, at: project.updatedAt, blocks, uncertain};
+    });
+    return {...prepared, ocrTranscriptions,
+      ocrReviewPages: ocr.filter(page => !teacherReviewed || page.uncertain.length).map(page => page.page),
+      ocrVerifiedPages: ocr.filter(page => teacherReviewed && !page.uncertain.length).map(page => page.page),
+    };
+  }));
   unique(project.sources.map(s => s.id), '来源 ID');
   if (!project.sources.some(s => s.role === 'paper')) throw Error('缺少原试卷来源');
   const checkSource = (id: string | undefined, context: string) => {
@@ -65,19 +107,25 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
     unique(input.passages.map(p => p.id), '篇目 ID');
     unique(input.questions.map(q => q.id), '题目 ID');
     unique(input.questions.map(q => q.number), '题号');
-    project.passages = input.passages.map(({teaching: _teaching, lexicon: _lexicon, ...passage}) => passage);
-    for (const {analysis: notes, ...question} of input.questions) {
+    project.passages = input.passages.map(({teaching: _teaching, lexicon: _lexicon, special: _special, ...passage}) => passage);
+    const practices = new Map<string, NonNullable<ReturnType<typeof transferFromExercise>['exercise']>>();
+    for (const {analysis: notes, practice, ...question} of input.questions) {
       const passage = project.passages.find(p => p.id === question.passageId);
       if (!passage) throw Error(`第 ${question.number} 题：篇目不存在`);
       checkSource(question.sourceId, `第 ${question.number} 题`);
-      const conflict = !question.answer.trim() || !!notes && notes.answer.trim() !== question.answer.trim();
-      if (question.excluded || conflict || !notes) issues.push(`第 ${question.number} 题：${question.excluded ? '待核实，已排除' : conflict ? '缺参考答案或解析与参考答案有冲突' : '缺少解析'}`);
+      const answer = question.answer.trim();
+      const writing = question.type === 'writing' || question.type === 'continuation';
+      const conflict = (!answer && !writing) || !!(answer && notes && notes.answer.trim() !== answer);
+      if (question.excluded || conflict) issues.push(`第 ${question.number} 题：${question.excluded ? '待核实，已排除' : '缺参考答案或解析与参考答案有冲突'}`);
       const version = notes && {
         id: uid(), createdAt: project.updatedAt, origin: 'ai' as const, answer: notes.answer, analysis: notes.text,
         evidence: notes.evidence.map(reference => resolveEvidence(passage.paragraphs, reference)),
         practice: '', practiceAnswer: '', conflict, exercise: notes.practice,
       };
-      if (notes?.practice) validateExercise(notes.practice, question.type, [...passage.paragraphs.map(p => p.text), question.stem, ...question.options]);
+      const original = [...passage.paragraphs.map(p => p.text), passage.pool, question.stem, ...question.options];
+      if (practice && notes?.practice) throw Error(`第 ${question.number} 题：请只提供一份考点演练`);
+      if (notes?.practice) validateExercise(notes.practice, question.type, original);
+      if (practice) practices.set(question.id, validateExercise(practice, question.type, original));
       const excluded = question.excluded || conflict;
       project.questions.push({...question, excluded, confirmed: teacherReviewed && !excluded, stale: false, versions: version ? [version] : [], activeVersion: version?.id});
     }
@@ -86,7 +134,9 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
       const sourceText = teachingSource(project, passage.id);
       if (passage.translation) passage.translationSource = sourceText;
       const {teaching, lexicon} = input.passages[index];
-      if (!teaching && !lexicon) continue;
+      const transfer = project.questions.filter(q => q.passageId === passage.id && !q.excluded && practices.has(q.id))
+        .map(q => ({...transferFromExercise(practices.get(q.id)!), questionId: q.id}));
+      if (!teaching && !lexicon && !transfer.length) continue;
       const modules: TeachingModule[] = [...new Set(teaching?.modules)];
       const data = teaching?.data ?? emptyTeaching();
       if (lexicon) {
@@ -95,8 +145,23 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
         modules.push('lexicon');
       }
       validateTeachingCore(data, passage.paragraphs, modules);
+      if (transfer.length) modules.push('transfer');
       const id = uid();
-      passage.learning = {stale: false, activeVersion: id, remembered: [], versions: [{id, createdAt: project.updatedAt, origin: 'ai', sourceText, formatVersion: 3, completedModules: modules, data: {...data, transfer: []}}]};
+      passage.learning = {stale: false, activeVersion: id, remembered: [], versions: [{id, createdAt: project.updatedAt, origin: 'ai', sourceText, formatVersion: 3, completedModules: modules, data: {...data, transfer}}]};
+    }
+    if (input.passages.some(p => p.special)) {
+      const ready = teacherReviewed ? project : preparePreview(project);
+      for (const authored of input.passages) {
+        if (!authored.special) continue;
+        const {kind, input: scope, result: raw} = authored.special;
+        const prepared = prepareSpecial(ready, authored.id, kind, scope);
+        if (new Set(scope.questionIds).size !== scope.questionIds.length || scope.questionIds.length !== prepared.questions.length)
+          throw Error(`${authored.title}：专项讲评包含无效、重复或已排除的题目`);
+        const result = validateSpecialResult(prepared, raw);
+        if (result.status !== 'ok') issues.push(`${authored.title} · ${specialNames[kind]}：待核实。 ${result.notices.join('；')}`);
+        const id = uid(), target = project.passages.find(p => p.id === authored.id)!;
+        target.special = {active: {[kind]: id}, versions: [{id, kind, input: scope, result, createdAt: project.updatedAt, sourceText: specialFingerprint(ready, target.id)}]};
+      }
     }
   } else if (input.subject === 'chinese') {
     const data = project.chinese!;
@@ -162,7 +227,7 @@ export async function prepareLesson(manifest: SkillManifest, loadImage: LoadImag
 export function preparePreview(project: Project): Project {
   const preview = structuredClone(project);
   preview.title += '（待教师核对）';
-  for (const q of preview.questions) q.confirmed = !q.excluded && !!q.answer.trim() && !q.versions.some(v => v.conflict);
+  for (const q of preview.questions) q.confirmed = !q.excluded && (!!q.answer.trim() || ['writing', 'continuation'].includes(q.type)) && !q.versions.some(v => v.conflict);
   for (const group of preview.chinese?.groups || []) {
     for (const m of group.materials) m.imageConfirmed = !!m.image && !group.sourceNeedsReview;
     for (const q of group.questions) q.confirmed = !q.excluded && !group.sourceNeedsReview;
