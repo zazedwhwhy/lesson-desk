@@ -28,7 +28,7 @@ import{generationNotice}from'../core/generation-notice';
 import{taskKinds,type GenerationContent}from'../core/generation-model';
 import type{TeachingModule}from'../core/learning';
 import{generationExecutor}from'./generation-service';
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme, safeStorage, shell, Notification } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Store } from './store';
@@ -75,7 +75,10 @@ function notifyGeneration(p:Project){
 app.whenReady().then(async () => {
     initializeDiagnostics(app.getPath('userData'));
     await initializePrompts(app.getPath('userData'));
-    if(process.platform==='win32')app.setAppUserModelId(beta?'top.rainhollow.lessondesk.beta':'top.rainhollow.lessondesk');
+    if (process.platform === 'win32') {
+        app.setAppUserModelId(beta ? 'top.rainhollow.lessondesk.beta' : 'top.rainhollow.lessondesk');
+        if (!nativeTheme.inForcedColorsMode) nativeTheme.themeSource = 'light';
+    }
     store = new Store(path.join(app.getPath('userData'), 'projects'));
     const firstLaunch=await fs.access(store.root).then(()=>false,(error:NodeJS.ErrnoException)=>{if(error.code==='ENOENT')return true;throw error;});
     if (!(await store.list()).length&&firstLaunch)
@@ -270,7 +273,22 @@ app.whenReady().then(async () => {
     handle('preview', async (id: string, sid: string) => { const p = await store.load(id); const source = p.sources.find(s => s.id === sid); if (!source?.asset)
         throw Error('没有可预览的原文件'); validateBundlePath(source.asset); const data = await fs.readFile(path.join(store.dir(id), source.asset)); return { kind: source.kind, data: Array.from(data) }; });
     handle('fullscreen', () => win.setFullScreen(!win.isFullScreen()));
-    win = new BrowserWindow({ title:beta?'讲题工作台 Beta':'讲题工作台',width: 1440, height: 960, minWidth: 1000, minHeight: 650, show: false, backgroundColor: '#f3f4f6', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+    win = new BrowserWindow({
+        title: beta ? '讲题工作台 Beta' : '讲题工作台',
+        width: 1440,
+        height: 960,
+        minWidth: 1000,
+        minHeight: 650,
+        show: false,
+        backgroundColor: '#faf7ef',
+        ...(process.platform === 'win32' ? { icon: path.join(__dirname, '../assets/app-icon.ico') } : {}),
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.cjs'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+        },
+    });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.on('focus',()=>win.flashFrame(false));
     win.webContents.on('will-navigate', (event) => event.preventDefault());

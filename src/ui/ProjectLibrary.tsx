@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {ArrowRight, BookOpen, FileUp, Plus, Search, Trash2} from 'lucide-react';
+import {BookOpen, FileUp, Search, Trash2} from 'lucide-react';
 import type {Project} from '../core/model';
 
 const subjects = {english: '英语', chinese: '语文', chemistry: '化学'};
@@ -37,7 +37,7 @@ export function ProjectLibrary(p: Props) {
             {Object.entries(subjects).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select></label>
           <label>课件名称<input value={title} onChange={e => setTitle(e.target.value)} placeholder={subjects[subject] + '试卷讲解'} /></label>
-          <button className="primary" disabled={p.busy}><Plus size={16}/>新建并整理材料</button>
+          <button className="primary" disabled={p.busy}>新建并整理材料</button>
         </form>
         <div className="library-import"><button disabled={p.busy} onClick={p.importBundle}><FileUp size={16}/>导入课件包</button><button disabled={p.busy} onClick={p.example}><BookOpen size={16}/>打开教学示例</button></div>
       </section>
@@ -49,7 +49,6 @@ export function ProjectLibrary(p: Props) {
         {visible.map(item => <div className="library-row" key={item.id}>
           <button className="library-open" disabled={p.busy} onClick={()=>p.open(item.id)}>
             <span><strong>{item.title}</strong><small>{[item.subject && subjects[item.subject], item.example && '预置教学示例', item.error ? '文件读取异常' : item.updatedAt && new Date(item.updatedAt).toLocaleString()].filter(Boolean).join(' · ')}</small></span>
-            <ArrowRight size={18}/>
           </button>
           <button className="library-delete" title="移到回收站" aria-label={'删除课件：'+item.title} disabled={p.busy||!window.desk} onClick={()=>p.remove(item.id)}><Trash2 size={16}/></button>
         </div>)}
