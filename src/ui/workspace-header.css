@@ -27,7 +27,6 @@
   gap: 20px;
   padding: 8px 26px;
   background: var(--desk-toolbar);
-  border-bottom: 1px solid var(--border);
   position: relative;
   z-index: 20;
   font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
@@ -214,8 +213,7 @@
 }
 
 .options-links {
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
+  margin-top: var(--desk-group-gap);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -224,12 +222,6 @@
 .module-heading > svg { display: none; }
 .module-heading h2 { font-size: 27px; }
 .module-heading p { font-size: 17px; }
-.trunk {
-  background: transparent;
-  border-block: 1px solid var(--border);
-  padding: 14px 0;
-  border-radius: 0;
-}
 .genre-label { border: 0; padding: 0; font-size: 17px; }
 .module-note { font-size: 11px; }
 .page-title h1 { font-size: 36px; }

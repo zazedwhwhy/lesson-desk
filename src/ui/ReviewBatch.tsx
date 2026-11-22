@@ -16,7 +16,7 @@ export function ReviewBatch({ p, questions, hint, selected, setSelected, busy, a
   apply: (action: ReviewAction) => void; report: string[];
 }) {
   const ids = (questions||p?.questions||[]).map(q => q.id), count = ids.filter(id => selected.includes(id)).length;
-  return <section className="review-batch" aria-label="批量操作">
+  return <section className="review-batch paper-inset" aria-label="批量操作">
     <div className="batch-selection"><SelectionBox ids={ids} selected={selected} setSelected={setSelected} disabled={busy} label="选择整卷"/>
       <span>已选 {count} / {ids.length} 题</span>
       <button disabled={busy || !count} onClick={() => setSelected([])}>清空选择</button></div>
