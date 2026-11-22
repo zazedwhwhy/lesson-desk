@@ -68,8 +68,8 @@ export function OcrReview({ project: p, onProject, onSavingChange, disabled = fa
     finally { saveLock.current = false; onSavingChange?.(false); if (mounted.current) setSaving(false); }
   }
 
-  if (!pages.length) return message ? <section className="panel" aria-label="OCR原页核对"><h2>OCR 原页核对完成</h2><p role="status">全部页面已核对，可继续整理试卷。</p></section> : null;
-  return <section className="panel ocr-review" aria-label="OCR原页核对">
+  if (!pages.length) return message ? <section className="paper-sheet" aria-label="OCR原页核对"><h2>OCR 原页核对完成</h2><p role="status">全部页面已核对，可继续整理试卷。</p></section> : null;
+  return <section className="paper-sheet ocr-review" aria-label="OCR原页核对">
     <h2>OCR 原页核对</h2>
     <p>请对照原图核对题号、空号、选项、公式和原题错字。可在这里显示原图，也可对照已打开的原PDF；确认通过表示你已人工核对。</p>
     <div className="ocr-review-toolbar">

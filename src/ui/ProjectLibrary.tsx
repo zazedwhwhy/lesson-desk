@@ -29,7 +29,7 @@ export function ProjectLibrary(p: Props) {
   const visible = p.items.filter(item => (item.title + (item.subject ? subjects[item.subject] : '')).includes(query.trim()));
   return <main className="library" data-screen-label="课件列表">
     <h1>我的课件</h1>
-    <div className="library-grid">
+    <div className="library-grid paper-sheet">
       <section className="library-create">
         <h2>新建课件</h2>
         <form onSubmit={event => {event.preventDefault(); p.create(title.trim() || subjects[subject] + '试卷讲解', subject);}}>

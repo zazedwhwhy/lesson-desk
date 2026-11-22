@@ -27,12 +27,12 @@ export function ConnectionSettings({current,onSaved,back,prompts}:{current:Setti
  const sameEndpoint=rows.some(s=>s.id===draft.id&&s.provider===draft.provider&&s.baseUrl.replace(/\/+$/,'')===draft.baseUrl.trim().replace(/\/+$/,''));
  return <main className="connection-page" data-screen-label="连接设置">
   <div className="settings-heading"><button className="settings-back" disabled={busy} onClick={()=>navigate(back)}><ArrowLeft size={17}/>返回工作区</button><h1>连接设置</h1><p>保存常用连接，在这里切换模型和服务。</p></div>
-  <div className="connection-layout"><aside className="connection-list" aria-label="已保存的连接"><div className="connection-list-heading"><h2>已保存的连接</h2><button aria-label="新增连接" disabled={busy} onClick={()=>navigate(()=>load({...defaultSettings,name:'',sentenceCount:current.sentenceCount,lexiconCount:current.lexiconCount}))}><Plus size={17}/>新增</button></div>
+  <div className="connection-layout paper-sheet"><aside className="connection-list" aria-label="已保存的连接"><div className="connection-list-heading"><h2>已保存的连接</h2><button aria-label="新增连接" disabled={busy} onClick={()=>navigate(()=>load({...defaultSettings,name:'',sentenceCount:current.sentenceCount,lexiconCount:current.lexiconCount}))}><Plus size={17}/>新增</button></div>
    {!rows.length&&<p className="muted">还没有保存的连接。填写右侧信息即可开始。</p>}
    {rows.map(s=><button key={s.id} className={'connection-item '+(draft.id===s.id?'selected':'')} aria-pressed={draft.id===s.id} disabled={busy} onClick={()=>navigate(()=>load(s))}><strong>{s.name}</strong><span>{s.model}</span><small>{s.id===current.id?<><Check size={13}/>当前使用</>:providerPresets[s.provider].label}</small></button>)}
    <button className="prompt-link" disabled={busy} onClick={()=>navigate(prompts)}>查看与编辑提示词</button>
   </aside>
-  <section className="connection-editor panel" aria-label="连接详情"><form onSubmit={e=>{e.preventDefault();void save();}}>
+  <section className="connection-editor" aria-label="连接详情"><form onSubmit={e=>{e.preventDefault();void save();}}>
    <div className="connection-editor-title"><h2>{draft.id?'连接详情':'新增连接'}</h2>{dirty&&<span className="muted">有未保存的修改</span>}</div>
    <fieldset disabled={busy} className="connection-fields"><label>连接名称<input value={draft.name||''} placeholder="例如：日常备课" maxLength={80} onChange={e=>edit({name:e.target.value})}/></label>
    <div className="connection-pair"><label>服务商<select value={draft.provider} onChange={e=>{clearSecret();edit(selectProvider(draft,e.target.value as Settings['provider']));}}>{Object.entries(providerPresets).map(([id,p])=><option key={id} value={id}>{p.label}</option>)}</select></label><label>模型名称<input required value={draft.model} placeholder="填写账号可用的模型" onChange={e=>edit({model:e.target.value})}/></label></div>

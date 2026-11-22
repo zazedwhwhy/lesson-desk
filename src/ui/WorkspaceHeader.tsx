@@ -47,7 +47,7 @@ export function WorkspaceHeader(p:Props) {
       </> : <div className="product-title"><BookOpen size={21}/><span>讲题工作台{notebookBeta?' Beta':''}</span></div>}
     </div>
     <nav className="workspace-actions" aria-label="课件操作">
-      {doc&&<div className="stage-nav" role="group" aria-label="课件流程">
+      {doc&&<div className="stage-nav paper-tabs" role="group" aria-label="课件流程">
         {stages.map(([stage,label])=><button key={stage} aria-current={stage===p.screen?'page':undefined}
           disabled={p.busy} onClick={()=>{
             if(stage===p.screen)return;
@@ -62,7 +62,7 @@ export function WorkspaceHeader(p:Props) {
         </div>
         <fieldset>
         <legend>页面内容</legend>
-        <div className="view-choices">{[['original','读原文'],['compare','对读'],['analysis','看讲义']].map(([value,label])=>
+        <div className="view-choices paper-tabs">{[['original','读原文'],['compare','对读'],['analysis','看讲义']].map(([value,label])=>
         <button key={value} aria-pressed={p.mode===value} onClick={()=>p.setMode(value)}>{label}</button>)}</div>
         </fieldset>
         <label className="font-setting">

@@ -115,26 +115,6 @@
   border-inline-end: 1px solid var(--border);
 }
 
-.workspace-header .stage-nav button {
-  min-height: 36px;
-  padding: 5px 10px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--annotation);
-}
-
-.workspace-header .stage-nav button:hover:enabled {
-  background: var(--desk-hover);
-}
-
-.workspace-header .stage-nav button[aria-current="page"] {
-  border-bottom-color: var(--desk-accent);
-  color: var(--desk-accent);
-  font-weight: 600;
-}
-
 .reading-menu {
   position: relative;
 }
@@ -192,23 +172,8 @@
   margin-bottom: 8px;
 }
 
-.view-choices {
-  display: flex;
-  gap: 6px;
-}
-
-.view-choices button {
+.view-choices > button {
   flex: 1;
-  padding: 7px 5px;
-  border: 1px solid var(--border);
-  font-size: 12px;
-  background: transparent;
-}
-
-.view-choices button[aria-pressed="true"] {
-  background: var(--desk-hover);
-  border-color: #af927d;
-  color: var(--desk-accent);
 }
 
 .font-setting {
@@ -275,7 +240,6 @@
   .workspace-actions { gap: 8px; }
   .document-location { gap: 9px; }
   .document-location h1 { font-size: 19px; }
-  .workspace-header .stage-nav button { padding-inline: 8px; }
 }
 
 @media (max-width: 720px) {
