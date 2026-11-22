@@ -20,7 +20,7 @@
 }
 
 .workspace-header {
-  min-height: 62px;
+  min-height: 58px;
   display: flex;
   align-items: center;
   justify-content: space-between;

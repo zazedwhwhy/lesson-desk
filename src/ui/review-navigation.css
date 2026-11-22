@@ -11,8 +11,8 @@
 .group-selection>span{font-size:12px;color:#6c604f}.question-edit.is-selected{outline:1px solid #bda88b;outline-offset:4px}
 .generation-status{margin-top:20px;font-size:14px;line-height:1.8}.generation-status>p{margin:8px 0}.generation-status details{padding:12px 0}.generation-status summary{color:#8c412c;cursor:pointer}.generation-status details p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0}
 .toc .question-link{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;width:100%}
-.toc .question-link small{font-family:'Microsoft YaHei',sans-serif;font-size:11px;color:#76664f}.toc .toc-summary{margin:18px 0;font-size:12px;line-height:1.9;color:#6c604f}
-.toc nav{display:flex;flex-direction:column;gap:4px}.toc .toc-subtitle{margin-bottom:20px}.explanations>.section-tabs{align-items:center;row-gap:4px}
+.toc .question-link small{font-family:'Microsoft YaHei',sans-serif;font-size:11px;color:#76664f}.toc .toc-summary{margin:var(--desk-group-gap) 0;font-size:12px;line-height:1.9;color:#6c604f}
+.toc nav{display:flex;flex-direction:column;gap:4px}.explanations>.section-tabs{align-items:center;row-gap:4px}
 .generation-controls{margin:22px 0 28px;padding:22px 25px;background:#faf7ef;font-size:14px;line-height:1.8}
 .generation-controls h3{font:26px WenKai,serif;margin:0 0 16px;color:#4c3f31}
 .generation-controls>label{max-width:320px;margin:0 0 16px}
