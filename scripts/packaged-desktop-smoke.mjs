@@ -133,12 +133,14 @@ try {
   await app.close();
   app = await launch();
   const reopened = await app.firstWindow();
-  await reopened.locator('.library-open').filter({ hasText: '跨平台合成材料' }).waitFor();
-  const storedSources = await reopened.evaluate(async id => {
-    const project = await window.desk.invoke('load', id);
-    return project.sources.map(source => source.name);
-  }, projectId);
-  assert.deepEqual(storedSources, materials.names);
+  const copies = reopened.locator('.library-open').filter({ hasText: '跨平台合成材料' });
+  await copies.nth(1).waitFor();
+  assert.equal(await copies.count(), 2);
+  const storedSources = await reopened.evaluate(async ids => {
+    const projects = await Promise.all(ids.map(id => window.desk.invoke('load', id)));
+    return projects.map(project => project.sources.map(source => source.name));
+  }, [projectId, imported.id]);
+  assert.deepEqual(storedSources, [materials.names, materials.names]);
   await reopened.screenshot({ path: path.join(output, 'library.png') });
 
   const report = {
