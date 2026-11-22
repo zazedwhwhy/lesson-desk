@@ -16,7 +16,7 @@ export function GenerationControls({p,kinds,setKinds,selected,busy,provider,mode
  const unfinished=jobs.filter(({job})=>job?.tasks?.some(t=>t.state!=='complete')).map(({kind})=>kind);
  const active=busy&&p.job.state==='running'&&p.job.mode==='selected';
  async function stop(){setCancelling(true);setCancelError('');try{await cancel();}catch(e){setCancelling(false);setCancelError(friendlyError(e));}}
- return <section className="prep-generation" id="prepare-generation" aria-labelledby="prepare-generation-heading">
+ return <section className="prep-generation paper-sheet" id="prepare-generation" aria-labelledby="prepare-generation-heading">
   <div className="prep-section-heading"><div><h2 id="prepare-generation-heading">生成教学内容</h2><p>选好需要的模块，一次开始。只安排题型适用内容，各项独立保存，生成后仍需教师核对。</p></div></div>
   <div className="prep-scope"><strong>{selected.length?'当前勾选题目':'整张试卷'} · {ids.length} 道题可生成</strong><span>仅使用已核对、未排除的题目。{scoped.filter(q=>!q.confirmed&&!q.excluded).length} 题待核对，{scoped.filter(q=>q.excluded).length} 题已排除。</span></div>
   <fieldset className="prep-module-list" disabled={busy}><legend>本次生成哪些内容</legend>{taskKinds.map(kind=><label key={kind}><input type="checkbox" checked={kinds.includes(kind)} onChange={e=>setKinds(e.target.checked?[...kinds,kind]:kinds.filter(k=>k!==kind))}/><span><strong>{kind==='analysis'?'逐题讲评':generationNames[kind]}</strong><small>{descriptions[kind]}</small></span></label>)}</fieldset>

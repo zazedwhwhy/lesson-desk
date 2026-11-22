@@ -15,7 +15,7 @@ export function ChinesePreparationGeneration({data:d,groupIds,modules,setModules
  async function start(resume:boolean){setActive(true);setCancelling(false);setCancelSent(false);setError('');try{await generate(resume?[]:scope.groups.map(g=>g.id),resume?[]:modules,resume,resume?undefined:scope.questions.map(q=>q.id));}catch(e){setError(friendlyError(e));}finally{setActive(false);setCancelling(false);}}
  async function stop(){setCancelling(true);try{await cancel();setCancelSent(true);}catch(e){setError('取消未成功：'+friendlyError(e));setCancelling(false);}}
  const tasks=d.tasks.map(t=>({...t,title:`${d.groups.find(g=>g.id===t.groupId)?.title||'原材料组已不存在'}${t.questionId?' · 第 '+(d.groups.flatMap(g=>g.questions).find(q=>q.id===t.questionId)?.number||'待核实')+' 题':''} · ${chineseModuleNames[t.module]}`}));
- return <section className="prep-generation" id="prepare-generation" aria-labelledby="prepare-generation-heading">
+ return <section className="prep-generation paper-sheet" id="prepare-generation" aria-labelledby="prepare-generation-heading">
    <h2 id="prepare-generation-heading">生成教学内容</h2><p>选好需要的模块，一次开始。只安排题型适用内容，各项独立保存，生成后仍需教师核对。</p>
    {!d.groups.length&&<p className="prep-note">还没有材料组。请先上传或粘贴试卷并整理题目，再选择要生成的讲义。</p>}
    <div className="prep-scope"><strong>{selectedCount?'当前勾选题目':'整张试卷'} · {scope.questions.length} 道题可生成</strong><span>仅使用已核对、未排除的题目。{unconfirmed} 题待核对，{excluded} 题已排除。</span></div>

@@ -4,7 +4,7 @@ import type {Project} from '../core/model';
 export function SourceFidelityReport({project,actions}:{project:Project;actions?:React.ReactNode}){
  const issues=project.sourceFidelityIssues||[];
  if(!issues.length)return null;
- return <section className="panel" aria-label="原题一致性检查报告">
+ return <section className="paper-sheet" aria-label="原题一致性检查报告">
   {actions}<details><summary>原题一致性检查 · {issues.length} 处差异待核对（展开查看）</summary>
   <p role="status">其他题目已继续整理。以下为本次整理时发现的差异，候选内容已保留；请对照原材料，在题目与答案中修正并确认。此报告保留当时的检查结果，不代表修改后的状态。</p>
   {issues.map((issue,index)=><details key={index}>
