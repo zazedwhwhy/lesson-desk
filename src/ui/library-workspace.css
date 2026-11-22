@@ -21,6 +21,7 @@
   gap: var(--library-inset);
   padding: var(--library-inset);
   border: 1px solid var(--border);
+  border-radius: var(--desk-panel-radius);
   background: var(--paper);
 }
 
@@ -139,14 +140,11 @@
 
 .workspace-actions .notebook-tools {position:relative; border:0; background:transparent; padding:0; font:13px 'Microsoft YaHei',sans-serif;}
 .notebook-menu>summary {cursor:pointer; padding:8px 2px; white-space:nowrap;}
-.notebook-menu .notebook-bar {position:absolute; right:0; top:100%; width:240px; background:var(--paper);border-radius:6px; padding:14px;
+.notebook-menu .notebook-bar {position:absolute; right:0; top:100%; width:240px; background:var(--paper);border-radius:var(--desk-panel-radius); padding:14px;
   border:1px solid var(--border); box-shadow:0 4px 16px #0002; z-index:3; display:grid;}
 .notebook-menu .notebook-bar select {width:100%;}
 .notebook-menu p[role=status] {font-size:13px; white-space:normal;}
 
-/* Paper surfaces have softer corners; rules, text tabs and slide canvases stay square. */
-:root { --desk-control-radius:6px; --desk-panel-radius:8px; }
-:is(.preparation-workspace,.lesson-setup,.library,.workspace-header,.connection-page) :is(button,input:not([type=checkbox]):not([type=radio]):not([type=range]),textarea,select) { border-radius:var(--desk-control-radius); }
 :is(.lesson-summary,.ppt-miniature,.preparation-workspace .review-grid) { border-radius:var(--desk-panel-radius); }
 .prep-question-fold { min-width:0; align-self:start; border-top:1px solid var(--prep-line); }
 .prep-question-fold>summary,.setup-template>summary,.lesson-group-body>summary,.paste-material>summary { cursor:pointer; padding:12px 0; }
