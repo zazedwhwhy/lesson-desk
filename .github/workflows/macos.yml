@@ -1,0 +1,74 @@
+name: macOS preview
+
+on:
+  push:
+    branches: [main, 'codex/lesson-desk-*-macos']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          architecture: ${{ matrix.arch }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check:public
+      - run: npm test
+      - name: Build test DMG
+        run: npm run package:mac
+      - name: Verify and test the app from the DMG
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          test "$(node -p process.arch)" = "$EXPECTED_ARCH"
+          version="$(node -p 'require("./package.json").version')"
+          dmg="LessonDesk-$version-macOS-$EXPECTED_ARCH.dmg"
+          output="$PWD/release/$version/macos"
+          hdiutil verify "$output/$dmg"
+          scratch="$(mktemp -d "$RUNNER_TEMP/lesson-desk.XXXXXX")"
+          mkdir "$scratch/volume" "$scratch/Applications"
+          hdiutil attach -readonly -nobrowse -mountpoint "$scratch/volume" "$output/$dmg"
+          trap 'hdiutil detach "$scratch/volume"' EXIT
+          app="$scratch/Applications/讲题工作台.app"
+          ditto "$scratch/volume/讲题工作台.app" "$app"
+          codesign --verify --deep --strict "$app"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$app/Contents/Info.plist")"
+          node scripts/packaged-desktop-smoke.mjs "$app/Contents/MacOS/$executable"
+          (cd "$output" && shasum -a 256 "$dmg" > SHA256SUMS.txt)
+      - name: Upload preview package
+        uses: actions/upload-artifact@v7
+        with:
+          name: LessonDesk-macOS-${{ matrix.arch }}
+          path: |
+            release/*/macos/*.dmg
+            release/*/macos/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+      - name: Upload smoke test evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: LessonDesk-macOS-${{ matrix.arch }}-smoke
+          path: |
+            test-results/packaged-desktop/report.json
+            test-results/packaged-desktop/*.png
+          if-no-files-found: error

@@ -25,17 +25,17 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
 
 `type` 可取 `reading/seven/cloze/grammar/listening/writing/continuation`。`answer` 是参考答案，`analysis.answer` 是解析所得答案。选择题用同一答案编号格式，实质冲突时写真实分歧，构建器会排除该题。题面缺失、模糊或不能和答案绑定时可标 `excluded:true`，略去无法证实的解析和引用。完全读不出题干的条目只记在 `reviewNotes`，注明原卷页码。英语题图由原件保留，现有英语 PPT 导出不支持单题配图。依赖原图作答的题应留待核对。一篇的共用选项池填 `pool`，篇目译文填 `translation`。
 
-要加长难句、篇章、词汇或仿写时，给篇目加 `teaching: {modules, data}`。`modules` 使用 `sentences/structure/lexicon/imitation` 里的实选项。`data` 的固定形状如下，未选的数组留空，未选篇章时 `structure` 的字符串留空并设 `outline:[]`、`transfer:[]`。
+词汇手账用篇目的 [`lexicon` 数组](lexicon.md)。只做篇目级内容时设 `questions: []`，原文来源仍保留。要加句法拆解、篇章脉络或表达迁移，给篇目加 `teaching: {modules, data}`，`modules` 使用 `sentences/structure/imitation` 中实选的值。`data` 的固定形状如下，未选的数组留空，未选篇章时 `structure` 的字符串留空并设 `outline:[]`。同一篇可同时填写 `lexicon` 和 `teaching`。
 
 | 字段 | 每项字段 |
 | --- | --- |
 | `sentences` | `quote, translation, trunk, clauses, examTip`，可加 `parts` 数组，每项 `{text,role,explanation}` |
 | `structure` | 对象 `genre, theme, outline, logic, examFocus`，`outline` 每项 `{paragraph,endParagraph,role,summary}`，段号从 1 起 |
-| `lexicon` | `term, meaning, sourceQuote, collocations, contrast, memory, quiz, answer`，可加 `sourceForm,partOfSpeech,usageNote,memoryExample` |
+| `lexicon` | 新课件填 `[]`，词条放在篇目级 `lexicon`。旧清单用 `modules:["lexicon"]` 和 `data.lexicon`，条目字段为 `term, meaning, sourceQuote, collocations, contrast, memory, quiz, answer`，可加 `sourceForm, partOfSpeech, usageNote, memoryExample, exampleTranslation`。同一篇只用一种写法。 |
 | `imitation` | `quote, pattern, why, example, task, reference, checklist`，`checklist` 是字符串数组 |
 | `transfer` | 留空。独立考点演练填到题目的 `analysis.practice` |
 
-`analysis.practice` 为 `{kind,skill,sourceTopic,newTopic,material,stem,options,answer,analysis,point}`。英文新材料应自足，题型与原题一致。要让一个篇目的逐题演练进入 PPT，请给本次选入的各题提供有效练习。
+`questions[].practice` 为 `{kind,skill,sourceTopic,newTopic,material,stem,options,answer,analysis,point}`，可单独生成。旧清单也可用 `analysis.practice`，每题选一种写法。英文新材料要自足，题型与原题一致。专项讲评的 `passages[].special`、校对和修正的输入见 [三科备课功能](workflows.md)。
 
 ## 语文
 
@@ -54,4 +54,4 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
 
 ## 打包约定
 
-两种输出通过工作台本身的项目校验与课件分页逻辑生成。原件原字节写入课件包。`project.json` 由脚本生成。待核对 PPT 的放映页范围按当次有效内容决定，包里仍可保留需补充的题和待确认讲义。教师审核后再从应用编排当前课堂。当前版本使用工作台内置纸面教案版式。
+原件原字节写入课件包。`project.json` 由脚本生成。待核对 PPT 的放映范围按当次有效内容决定，课件包保留需补充的题和待确认讲义。只需要课件包和核对清单时用 `--bundle-only`。PPT 使用工作台内置纸面教案版式。

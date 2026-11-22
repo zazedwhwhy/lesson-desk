@@ -28,7 +28,7 @@ import{generationNotice}from'../core/generation-notice';
 import{taskKinds,type GenerationContent}from'../core/generation-model';
 import type{TeachingModule}from'../core/learning';
 import{generationExecutor}from'./generation-service';
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme, safeStorage, shell, Notification } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Store } from './store';
@@ -41,6 +41,7 @@ import { reviseProject, issues, validateBundlePath } from '../core/logic';
 import { demoProject } from '../core/demo';
 let win: BrowserWindow, store: Store;
 const beta=notebookBeta;
+const paperToolbarColor = '#f7f4ec'; // Matches --desk-toolbar in paper.css.
 const isolated=app.commandLine.hasSwitch('user-data-dir');
 // Copy Local State before Electron loads its encryption context at ready.
 if(!isolated)initializeStableData(path.join(app.getPath('appData'),beta?'lesson-desk-notebook-beta':'lesson-desk-stable'),(beta?['lesson-desk-stable','lesson-desk-beta','lesson-desk']:['lesson-desk-beta','lesson-desk']).map(name=>path.join(app.getPath('appData'),name)));
@@ -64,14 +65,22 @@ function notifyGeneration(p:Project){
         const notification=new Notification(notice);
         notifications.add(notification);notification.on('close',()=>notifications.delete(notification));
         notification.on('click',()=>{if(win.isMinimized())win.restore();win.show();win.focus();win.flashFrame(false);});
-        notification.on('failed',()=>{notifications.delete(notification);deliveryError('生成结果已保存，但系统通知发送失败，请在 Windows 通知设置中检查讲题工作台。');});
+        notification.on('failed',()=>{
+            notifications.delete(notification);
+            const settings=process.platform==='win32'?'Windows 通知设置':'系统通知设置';
+            deliveryError(`生成结果已保存，但系统通知发送失败，请在 ${settings} 中检查讲题工作台。`);
+        });
         notification.show();
     }catch{deliveryError('生成结果已保存，但系统通知发送失败，请在应用内查看进度。');}
 }
 app.whenReady().then(async () => {
     initializeDiagnostics(app.getPath('userData'));
     await initializePrompts(app.getPath('userData'));
-    app.setAppUserModelId(beta?'top.rainhollow.lessondesk.beta':'top.rainhollow.lessondesk');
+    if (process.platform === 'win32') {
+        app.setAppUserModelId(beta ? 'top.rainhollow.lessondesk.beta' : 'top.rainhollow.lessondesk');
+        // Caption hover colors follow the native theme, independently of symbolColor.
+        if (!nativeTheme.inForcedColorsMode) nativeTheme.themeSource = 'light';
+    }
     store = new Store(path.join(app.getPath('userData'), 'projects'));
     const firstLaunch=await fs.access(store.root).then(()=>false,(error:NodeJS.ErrnoException)=>{if(error.code==='ENOENT')return true;throw error;});
     if (!(await store.list()).length&&firstLaunch)
@@ -266,7 +275,30 @@ app.whenReady().then(async () => {
     handle('preview', async (id: string, sid: string) => { const p = await store.load(id); const source = p.sources.find(s => s.id === sid); if (!source?.asset)
         throw Error('没有可预览的原文件'); validateBundlePath(source.asset); const data = await fs.readFile(path.join(store.dir(id), source.asset)); return { kind: source.kind, data: Array.from(data) }; });
     handle('fullscreen', () => win.setFullScreen(!win.isFullScreen()));
-    win = new BrowserWindow({ title:beta?'讲题工作台 Beta':'讲题工作台',width: 1440, height: 960, minWidth: 1000, minHeight: 650, show: false, backgroundColor: '#f3f4f6', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+    win = new BrowserWindow({
+        title: beta ? '讲题工作台 Beta' : '讲题工作台',
+        width: 1440,
+        height: 960,
+        minWidth: 1000,
+        minHeight: 650,
+        show: false,
+        backgroundColor: paperToolbarColor,
+        ...(process.platform === 'win32' ? {
+            icon: path.join(__dirname, '../assets/app-icon.ico'),
+            titleBarStyle: 'hidden' as const,
+            titleBarOverlay: { color: paperToolbarColor, symbolColor: '#302c26' },
+        } : process.platform === 'darwin' ? {
+            titleBarStyle: 'hiddenInset' as const,
+            titleBarOverlay: true,
+        } : {}),
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.cjs'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: true,
+        },
+    });
+    if (process.platform === 'win32') win.removeMenu();
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.on('focus',()=>win.flashFrame(false));
     win.webContents.on('will-navigate', (event) => event.preventDefault());

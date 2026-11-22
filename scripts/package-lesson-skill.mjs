@@ -6,7 +6,7 @@ import {strToU8, zipSync} from 'fflate';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const name = 'lesson-desk-export';
-const version = '0.2.0';
+const version = '0.4.0';
 const skill = path.join(root, 'skills', name);
 const out = path.resolve(process.argv[2] ?? path.join(root, 'release', 'skills'));
 const runtime = await build({
@@ -36,7 +36,7 @@ const files = {
   [`${name}/scripts/build-lesson.cjs`]: runtime.outputFiles[0].contents,
   [`${name}/package.json`]: strToU8(JSON.stringify({name, version, private: true, keywords: ['pi-package'], pi: {skills: ['./SKILL.md']}}, null, 2) + '\n'),
 };
-for (const relative of ['SKILL.md', 'INSTALL.zh-CN.md', 'references/manifest.md', 'references/teaching.md']) {
+for (const relative of ['SKILL.md', 'INSTALL.zh-CN.md', 'references/manifest.md', 'references/teaching.md', 'references/lexicon.md', 'references/workflows.md']) {
   files[`${name}/${relative}`] = await readFile(path.join(skill, relative));
 }
 files[`${name}/licenses/lesson-desk.txt`] = await readFile(path.join(root, 'LICENSE'));

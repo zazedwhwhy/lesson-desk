@@ -1,6 +1,6 @@
 {
   "name": "lesson-desk",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "private": true,
   "description": "英语、语文与化学试卷讲解工作台",
   "main": "dist-desktop/main.cjs",
@@ -10,6 +10,7 @@
     "start": "electron .",
     "test": "vitest run",
     "package": "node scripts/package-release.mjs stable",
+    "package:mac": "node scripts/package-release.mjs stable mac",
     "check:public": "node scripts/check-public-content.mjs",
     "build:beta": "node scripts/build-channel.mjs beta",
     "package:beta": "node scripts/package-release.mjs beta"
@@ -45,7 +46,7 @@
     "appId": "top.rainhollow.lessondesk",
     "productName": "讲题工作台",
     "directories": {
-      "output": "release/0.18.0"
+      "output": "release/0.18.1"
     },
     "files": [
       "dist/**",
@@ -64,12 +65,20 @@
       "signExecutable": false,
       "icon": "assets/app-icon.ico"
     },
+    "mac": {
+      "icon": "assets/app-icon.svg",
+      "category": "public.app-category.education",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
+      "artifactName": "LessonDesk-${version}-macOS-${arch}.${ext}"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
     },
-    "artifactName": "LessonDesk-0.18.0-Setup.${ext}"
+    "artifactName": "LessonDesk-${version}-Setup.${ext}"
   },
   "license": "MIT",
   "engines": {
