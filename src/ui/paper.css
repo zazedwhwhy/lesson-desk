@@ -100,28 +100,36 @@ textarea{font-family:WenKai,serif;font-size:19px}h1,h2,h3{color:var(--ink)}:focu
   min-height: 44px;
 }
 .tabs button:focus-visible { outline-offset: -3px; }
-.classroom { background: #eae5da; min-height: 480px; }
-:is(#root, #root > div:not([hidden])):has(> .classroom:not(.chinese-classroom)) {
+:is(#root, #root > div:not([hidden])):has(> .classroom) {
   display: flex;
   flex-direction: column;
   height: var(--desk-work-area);
 }
-.classroom:not(.chinese-classroom) {
+
+.classroom {
   flex: 1 1 auto;
-  height: auto;
   min-height: 0;
-}.toc{background:#eee9df;border-right-color:#d8cfbf;width:178px;padding:20px 16px}.toc h3{font-family:WenKai,serif;font-weight:500;font-size:22px;margin-bottom:4px}.toc-subtitle{font-size:12px;color:#7b6e5a;margin-bottom:var(--desk-group-gap)}.toc button{font-size:14px;margin:0;padding:8px;color:#635748}.toc button:hover,.toc button.selected{background:#e2d9c9;color:#754632}.toc small{font-size:11px;line-height:1.7;color:#786b58}.toc-footer{display:block;margin-top:var(--desk-group-gap)}.module-directory button{font-family:WenKai,serif;font-size:18px}
+  background: #eae5da;
+}
+
+@media (max-width: 760px) {
+  :is(#root, #root > div:not([hidden])):has(> .chinese-classroom) {
+    height: auto;
+    min-height: var(--desk-work-area);
+  }
+}
+
+.toc{background:#eee9df;border-right-color:#d8cfbf;width:178px;padding:20px 16px}.toc h3{font-family:WenKai,serif;font-weight:500;font-size:22px;margin-bottom:4px}.toc-subtitle{font-size:12px;color:#7b6e5a;margin-bottom:var(--desk-group-gap)}.toc button{font-size:14px;margin:0;padding:8px;color:#635748}.toc button:hover,.toc button.selected{background:#e2d9c9;color:#754632}.toc small{font-size:11px;line-height:1.7;color:#786b58}.toc-footer{display:block;margin-top:var(--desk-group-gap)}.module-directory button{font-family:WenKai,serif;font-size:18px}
 .columns {
   --desk-book-inset: clamp(18px, 2vw, 30px);
-  align-self: flex-start;
-  /* Short material forms a smaller spread; long material uses the available height. */
-  min-block-size: min(100%, clamp(410px, 55vh, 580px));
-  max-block-size: 100%;
-  padding: 12px clamp(12px, 1.5vw, 22px) 18px;
+  min-block-size: 0;
+  padding-block: 12px clamp(16px, 2.5vh, 32px);
+  padding-inline: clamp(12px, 1.5vw, 22px);
   overflow: hidden;
 }
 
 .reading, .explanations {
+  min-block-size: 0;
   background: var(--paper);
   border-block: 1px solid var(--border);
   corner-shape: var(--desk-corner-shape);
