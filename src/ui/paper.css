@@ -10,6 +10,10 @@
   --desk-toolbar: #f7f4ec;
   --desk-hover: #eee7d9;
   --desk-accent: #85432f;
+  --desk-overlay-height: env(titlebar-area-height, 0px);
+  /* Electron reports a 1px overlay in Windows fullscreen. Collapse that inset. */
+  --desk-caption-height: clamp(0px, calc((var(--desk-overlay-height) - 1px) * 2), var(--desk-overlay-height));
+  --desk-work-area: calc(100vh - var(--desk-caption-height));
   color: var(--ink);
   background: #eeeae0;
 }
@@ -46,7 +50,7 @@ textarea{font-family:WenKai,serif;font-size:19px}h1,h2,h3{color:var(--ink)}:focu
 :is(#root, #root > div:not([hidden])):has(> .classroom:not(.chinese-classroom)) {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: var(--desk-work-area);
 }
 .classroom:not(.chinese-classroom) {
   flex: 1 1 auto;
