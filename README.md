@@ -17,7 +17,7 @@ Prepare exam explanations and classroom slides from your own papers. Lesson Desk
 
 Download the `LessonDesk-<version>-Setup.exe` asset for Windows x64. Each release includes `SHA256SUMS.txt`.
 
-The macOS 0.18.0 preview builds separate DMGs for Apple silicon and Intel. See the [download and manual test guide](docs/releases/0.18.0.md#macos-试用包) (Chinese).
+The [macOS 0.18.1 preview](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1-macos.1) includes separate DMGs for Apple silicon and Intel. See the [installation notes](docs/releases/0.18.1.md) (Chinese).
 
 Stable and Beta have separate installation names and data folders. On its first launch, Beta copies existing stable data; subsequent changes stay in their respective editions and do not sync. Removing the notebook from Stable does not delete existing notebook data.
 
@@ -94,6 +94,7 @@ Installers are written to `release/`. Stable and Beta build outputs are separate
 ## Documentation and contributions
 
 - [0.18.0 release notes](docs/releases/0.18.0.md)
+- [0.18.1 macOS release notes](docs/releases/0.18.1.md)
 - [Version history](docs/版本历史.md) (Chinese)
 - [Contributing](CONTRIBUTING.md)
 - [Development workflow](docs/开发与Git工作流.md) (Chinese)
