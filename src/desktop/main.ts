@@ -28,7 +28,7 @@ import{generationNotice}from'../core/generation-notice';
 import{taskKinds,type GenerationContent}from'../core/generation-model';
 import type{TeachingModule}from'../core/learning';
 import{generationExecutor}from'./generation-service';
-import { app, BrowserWindow, ipcMain, dialog, safeStorage, shell, Notification } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, nativeTheme, safeStorage, shell, Notification } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Store } from './store';
@@ -41,6 +41,7 @@ import { reviseProject, issues, validateBundlePath } from '../core/logic';
 import { demoProject } from '../core/demo';
 let win: BrowserWindow, store: Store;
 const beta=notebookBeta;
+const windowsToolbarColor = '#f7f4ec'; // Matches --desk-toolbar in paper.css.
 const isolated=app.commandLine.hasSwitch('user-data-dir');
 // Copy Local State before Electron loads its encryption context at ready.
 if(!isolated)initializeStableData(path.join(app.getPath('appData'),beta?'lesson-desk-notebook-beta':'lesson-desk-stable'),(beta?['lesson-desk-stable','lesson-desk-beta','lesson-desk']:['lesson-desk-beta','lesson-desk']).map(name=>path.join(app.getPath('appData'),name)));
@@ -77,6 +78,8 @@ app.whenReady().then(async () => {
     await initializePrompts(app.getPath('userData'));
     if (process.platform === 'win32') {
         app.setAppUserModelId(beta ? 'top.rainhollow.lessondesk.beta' : 'top.rainhollow.lessondesk');
+        // Caption hover colors follow the native theme, independently of symbolColor.
+        if (!nativeTheme.inForcedColorsMode) nativeTheme.themeSource = 'light';
     }
     store = new Store(path.join(app.getPath('userData'), 'projects'));
     const firstLaunch=await fs.access(store.root).then(()=>false,(error:NodeJS.ErrnoException)=>{if(error.code==='ENOENT')return true;throw error;});
@@ -279,12 +282,11 @@ app.whenReady().then(async () => {
         minWidth: 1000,
         minHeight: 650,
         show: false,
-        backgroundColor: process.platform === 'win32' ? '#f7f4ec' : '#faf7ef',
+        backgroundColor: process.platform === 'win32' ? windowsToolbarColor : '#faf7ef',
         ...(process.platform === 'win32' ? {
             icon: path.join(__dirname, '../assets/app-icon.ico'),
             titleBarStyle: 'hidden' as const,
-            // The renderer paints the full caption behind Electron's native controls.
-            titleBarOverlay: { color: '#00000000', symbolColor: '#302c26' },
+            titleBarOverlay: { color: windowsToolbarColor, symbolColor: '#302c26' },
         } : {}),
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
