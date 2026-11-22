@@ -2,20 +2,21 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-把手头的试卷整理成讲评教案和课堂课件。讲题工作台是一款 Windows 桌面应用，支持英语、语文与化学。导入试卷、核对题目和答案后，可以按需生成讲解，继续修改，再按授课顺序编排和导出。
+把手头的试卷整理成讲评教案和课堂课件。讲题工作台支持 Windows 和 macOS，可用于英语、语文与化学备课。导入试卷、核对题目和答案后，可以按需生成讲解，继续修改，再按授课顺序编排和导出。
 
-[下载 Windows 版](https://github.com/zazedwhwhy/lesson-desk/releases/latest) · [Beta 测试版](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) · [反馈问题](https://github.com/zazedwhwhy/lesson-desk/issues) · [MIT 许可证](LICENSE)
+[Windows x64](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1/LessonDesk-0.18.1-Setup.exe) · [macOS（Apple 芯片版）](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-arm64.dmg) · [macOS（Intel 版）](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-x64.dmg) · [反馈问题](https://github.com/zazedwhwhy/lesson-desk/issues) · [MIT 许可证](LICENSE)
 
 ![教案与 PPT 编排示例](docs/images/ppt-setup.png)
 
 ## 下载
 
-| 版本 | 下载 | 适用场景 |
+| 平台 | 版本 | 安装包 |
 | --- | --- | --- |
-| 正式版 | [0.18.0](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.0) | 日常备课，不含错题本功能 |
-| 测试版 | [0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) | 包含实验性的错题本，标记为预发布 |
+| Windows x64 | [0.18.1 正式版](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1) | [下载 EXE](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1/LessonDesk-0.18.1-Setup.exe) |
+| macOS Apple 芯片版（arm64） | [0.18.1 试用版](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1-macos.1) | [下载 Apple 芯片版 DMG](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-arm64.dmg) |
+| macOS Intel 版（x64） | [0.18.1 试用版](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1-macos.1) | [下载 Intel 版 DMG](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-x64.dmg) |
 
-在发布页下载 Windows x64 安装器 `LessonDesk-<version>-Setup.exe`。每版附有 `SHA256SUMS.txt` 校验文件。
+各发布页附有 `SHA256SUMS.txt` 校验文件。实验性错题本可在 [Windows Beta 0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) 中使用。
 
 两版使用独立的安装名称和数据目录。Beta 首次启动复制正式版已有数据，之后分别保存，不双向同步。正式版移除错题本功能时保留原有错题数据。
 
@@ -67,12 +68,12 @@ AI 任务会把所需材料发给选定的服务商。调用失败后不会自�
 
 ## 从源码运行
 
-在 Windows 安装 Node.js 24 LTS 与 Git。下面的命令使用当前正式版对应的源码。
+在 Windows 或 macOS 安装 Node.js 24 LTS 与 Git。两个平台的 0.18.1 均使用 `v0.18.1` 对应的源码。
 
-```powershell
+```sh
 git clone https://github.com/zazedwhwhy/lesson-desk.git
 cd lesson-desk
-git checkout v0.18.0
+git checkout v0.18.1
 npm ci
 npm run build
 npm start
@@ -83,14 +84,16 @@ npm start
 | `npm run dev` | 浏览器界面预览；导入、存储和 AI 等桌面功能需要 Electron |
 | `npm test` | 使用合成材料与模拟请求运行本地自动化测试 |
 | `npm run check:public` | 检查已跟踪文件中的私人数据与凭据 |
-| `npm run build` / `npm run package` | 构建 / 打包正式版 |
+| `npm run build` / `npm run package` | 构建应用 / 打包 Windows 正式版 |
+| `npm run package:mac` | 生成当前 Mac 架构的 DMG |
 | `npm run build:beta` / `npm run package:beta` | 构建 / 打包测试版 |
 
 安装器输出到 `release/`，两版构建产物分别保存。应用使用 Electron、React 与 TypeScript。
 
 ## 文档与参与
 
-- [0.18.0 发布说明](docs/releases/0.18.0.md)
+- [Windows 0.18.1 发布说明](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1)
+- [macOS 0.18.1 安装说明](https://github.com/zazedwhwhy/lesson-desk/blob/v0.18.1-macos.1/docs/releases/0.18.1.md)
 - [版本历史](docs/版本历史.md)
 - [贡献指南](CONTRIBUTING.md)
 - [开发与 Git 工作流](docs/开发与Git工作流.md)
