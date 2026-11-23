@@ -1,8 +1,26 @@
 # 生成输入
 
-UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`assets` 把来源 ID 映射到原文件路径，例如 `{"paper":"inputs/paper.pdf","key":"inputs/key.docx"}`。`reviewNotes` 是给教师看的待核对条目数组，写清题号、缺失项和可采取的核对动作。路径以 JSON 所在目录为基准。按授课顺序排列篇目、材料组和题目。
+UTF-8 JSON 顶层有 `project`、`selection`、可选 `assets` 和可选 `reviewNotes`。`assets` 把来源 ID 映射到原文件路径，例如 `{"paper":"inputs/paper.pdf","key":"inputs/key.docx"}`。`reviewNotes` 是给教师看的待核对条目数组，写清题号、缺失项和可采取的核对动作。路径以 JSON 所在目录为基准。按授课顺序排列篇目、材料组和题目。未知字段会报错并带出字段路径。旧版 `manifest.json` 出 PPT 时需补 `selection` 和已有答案的来源。已经生成的课件包仍可导入。
 
 所有学科的 `project` 都需要 `title`、`subject`、`sources`。来源用 `{ "id":"paper", "name":"试卷.pdf", "role":"paper", "kind":"pdf", "blocks":[{"id":"b1","text":"原文逐字摘录","page":2}] }`。`role` 可取 `paper/answer/listening`，`kind` 可取 `pdf/docx/text`。至少提供一个 `paper`。PDF 和 DOCX 在 `assets` 中关联该 ID 对应的原文件；粘贴文本使用 `text`，直接保存原文块。页码从 1 起，未知时省略。尽量把题干和参考答案也放在各自来源的文字块里。各层 ID 用唯一、稳定的英文标识，引用使用实际存在的 ID。
+
+### 交付范围
+
+`selection` 每项指定一个模块和材料 ID。正常生成 PPT 时必填。只做整理、校对或保存待核对草稿时，可使用 `--bundle-only` 并省略此字段。所选内容缺失、未完成或已排除时停止构建。需要部分交付时，取得老师同意后移除对应选项，疑点仍保留在课件包和核对清单。
+
+| 学科 | 逐题选项示例 | 篇目或材料组选项示例 |
+| --- | --- | --- |
+| 英语 | `{"passageId":"reading1","questionId":"q21","module":"analysis"}` | `{"passageId":"reading1","module":"lexicon"}` |
+| 语文 | `{"groupId":"g1","questionId":"q7","module":"practice"}` | `{"groupId":"g1","module":"structure"}` |
+| 化学 | `{"questionId":"q4","module":"experiment"}` | 题面和原图用 `{"questionId":"q4","module":"source"}` |
+
+英语逐题讲评、考点演练和阅读、听力、七选五、完形专项需给题目 ID。写作、续写专项用篇目 ID。英语和语文的原文用 `source`；各学科模块名与下面的字段一致。课件包可保留其他已生成或待核对的材料和讲义，PPT 根据 `selection` 出片。
+
+### 答案来源与待核对试解
+
+- 填写原题 `answer` 时，同时给出 `answerEvidence: {sourceId, blockId, quote}`。引用 `role: "answer"` 来源中的完整答案行或表，原样保留题号和答案。支持如 `21. A`、`第 7 题：雨后安静。`、`21–24 ABCD`。既有试卷又有同卷答案时，可分别登记来源角色。难以把完整答案与题号对应时列为待核对。
+- 老师明确要求试解时，填 `trialAnswer`，将 `answer` 留空，省略答案来源。英语另外用 `analysis` 存放同一试解和解题依据。保存待核对课件包；其他可用内容可照常按所选范围出片。
+- 老师明确确认答案及本次材料、讲义范围后，把确认的答案填入 `answer`，设 `answerOrigin: "teacher"`，去掉 `trialAnswer`，使用 `--teacher-reviewed`。重新核对解析是否与老师确认的答案一致。
 
 ## 英语
 
@@ -10,6 +28,10 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
 
 ```json
 {
+  "selection": [
+    {"passageId":"reading1","module":"source"},
+    {"passageId":"reading1","questionId":"q21","module":"analysis"}
+  ],
   "project": {
     "title": "阅读讲评",
     "subject": "english",
@@ -18,7 +40,7 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
       {"id":"key","name":"参考答案","role":"answer","kind":"text","blocks":[{"id":"a21","text":"21. A"}]}
     ],
     "passages": [{"id":"reading1","title":"Reading A","type":"reading","paragraphs":[{"id":"p1","text":"The team started early to avoid the heat."}]}],
-    "questions": [{"id":"q21","number":"21","sourceId":"paper","passageId":"reading1","type":"reading","stem":"Why did the team start early?","options":["A. To avoid the heat.","B. To catch a bus."],"answer":"A","analysis":{"answer":"A","text":"不定式 to avoid the heat 直接交代出发目的。B 项的公交车在文中没有依据。","evidence":[{"blockId":"p1","quote":"to avoid the heat"}]}}]
+    "questions": [{"id":"q21","number":"21","sourceId":"paper","passageId":"reading1","type":"reading","stem":"Why did the team start early?","options":["A. To avoid the heat.","B. To catch a bus."],"answer":"A","answerEvidence":{"sourceId":"key","blockId":"a21","quote":"21. A"},"analysis":{"answer":"A","text":"不定式 to avoid the heat 直接交代出发目的。B 项的公交车在文中没有依据。","evidence":[{"blockId":"p1","quote":"to avoid the heat"}]}}]
   }
 }
 ```
@@ -54,4 +76,4 @@ UTF-8 JSON 顶层有 `project`、可选 `assets` 和可选 `reviewNotes`。`asse
 
 ## 打包约定
 
-原件原字节写入课件包。`project.json` 由脚本生成。待核对 PPT 的放映范围按当次有效内容决定，课件包保留需补充的题和待确认讲义。只需要课件包和核对清单时用 `--bundle-only`。PPT 使用工作台内置纸面教案版式。
+原件原字节写入课件包。`project.json` 由脚本生成。待核对 PPT 按 `selection` 出片，课件包保留需补充的题和待确认讲义。只需要课件包和核对清单时用 `--bundle-only`。PPT 使用工作台内置纸面教案版式。

@@ -6,7 +6,7 @@ import {strToU8, zipSync} from 'fflate';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const name = 'lesson-desk-export';
-const version = '0.4.0';
+const version = '0.5.0';
 const skill = path.join(root, 'skills', name);
 const out = path.resolve(process.argv[2] ?? path.join(root, 'release', 'skills'));
 const runtime = await build({

@@ -6,6 +6,7 @@ import {exportPpt} from '../../../src/desktop/export';
 import {parseManifest, prepareLesson, preparePreview} from './lesson-project';
 import {selectSkillContent} from './skill-selection';
 import {attachSkillWorkflow} from './skill-workflow';
+import {GenerationContentError} from '../../../src/core/errors';
 
 const maxBundle = 200 * 1024 * 1024;
 const maxImage = 10 * 1024 * 1024;
@@ -15,6 +16,7 @@ export function buildSkillLesson(raw: unknown, inputDirectory: string, outputDir
 export function buildSkillLesson(raw: unknown, inputDirectory: string, outputDirectory: string, teacherReviewed: boolean, bundleOnly: boolean): Promise<BuildResult>;
 export async function buildSkillLesson(raw: unknown, inputDirectory: string, outputDirectory: string, teacherReviewed = false, bundleOnly = false): Promise<BuildResult> {
   const manifest = parseManifest(raw);
+  if (!bundleOnly && !manifest.selection) throw new GenerationContentError('导出 PPT 需要 selection，请指定篇目、题目和模块');
   const input = await realpath(inputDirectory);
   async function readInput(file: string, limit: number) {
     if (path.isAbsolute(file) || path.win32.isAbsolute(file)) throw Error(`请用输入目录内的文件相对路径 ${file}`);
@@ -46,6 +48,8 @@ export async function buildSkillLesson(raw: unknown, inputDirectory: string, out
   }
   for (const source of draftProject.sources) if (source.kind !== 'text' && !source.asset) throw Error(`缺少原文件 ${source.name}`);
   const project = attachSkillWorkflow(draftProject, manifest.project, issues, bundleOnly);
+  const preview = teacherReviewed || !manifest.selection ? project : preparePreview(project);
+  const selection = manifest.selection && selectSkillContent(preview, manifest.selection, issues);
   files['project.json'] = strToU8(JSON.stringify(project));
   if (bytes + files['project.json'].length > maxBundle) throw Error('课件包解压体积超过 200 MB，请缩小本次范围');
   const archive = zipSync(files, {level: 6});
@@ -56,10 +60,7 @@ export async function buildSkillLesson(raw: unknown, inputDirectory: string, out
   const draft = stage && path.join(stage, 'lesson.pptx');
   try {
     let pages = 0;
-    if (draft) {
-      const preview = teacherReviewed ? project : preparePreview(project);
-      pages = await exportPpt(preview, draft, selectSkillContent(preview));
-    }
+    if (draft && selection) pages = await exportPpt(preview, draft, selection);
     const pptx = draft && path.join(out, teacherReviewed ? '讲评课件.pptx' : '讲评课件-待核对.pptx');
     const bundle = path.join(out, '讲评课件.lesson.zip');
     const review = path.join(out, '核对清单.md');
