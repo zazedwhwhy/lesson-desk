@@ -8,7 +8,9 @@ import {manifestSchema} from './lesson-project';
 async function main() {
   const [manifest, output, ...flags] = process.argv.slice(2);
   if (manifest === '--reference' && !flags.length && (output === 'manifest' || output === 'prompts')) {
-    const reference = output === 'manifest' ? z.toJSONSchema(manifestSchema, {io: 'input'}) : promptCatalog();
+    const reference = output === 'manifest' ? z.toJSONSchema(manifestSchema, {io: 'input', override: ({jsonSchema}) => {
+      if (jsonSchema.type === 'object' && jsonSchema.properties) jsonSchema.additionalProperties = false;
+    }}) : promptCatalog();
     process.stdout.write(JSON.stringify(reference, null, 2) + '\n');
     return;
   }

@@ -13,7 +13,7 @@ export const lessonModuleNames: Record<LessonModule, string> = {
 };
 export type LessonSelection = {
   passageIds: string[]; questionIds: string[]; modules: Record<string, LessonModule[]>;
-  questionIdsByModule?: Partial<Record<'analysis' | 'practice', string[]>>;
+  questionIdsByModule?: Partial<Record<'analysis' | 'practice' | 'special', string[]>>;
 };
 export type LessonBlock = { label: string; text: string; emphasis?: boolean };
 export type LessonSlide = { id: string; kind: LessonModule | 'question' | 'practice-answer' | 'imitation-answer'; title: string; section: string; blocks: LessonBlock[]; body: string[]; questionId?: string; passageId: string };
@@ -120,7 +120,8 @@ export function lessonSelectionIssues(p: Project, selection: LessonSelection): s
         if (!reason && m === 'special' && ['reading', 'listening', 'seven', 'cloze'].includes(a.type)) {
           const kind = applicableSpecial(a.type)[0];
           const version = a.special?.versions.find(v => v.id === a.special?.active[kind]);
-          if (!version?.result.items.some(item => qs.some(q => q.id === item.question_id || q.id === item.blank_id))) issues.push(`${a.title} · 专项讲评：所选题目没有对应内容`);
+          const targets = moduleQuestions(selection, qs, 'special');
+          if (!version?.result.items.some(item => targets.some(q => q.id === item.question_id || q.id === item.blank_id))) issues.push(`${a.title} · 专项讲评：所选题目没有对应内容`);
         }
       }
     }
@@ -128,7 +129,7 @@ export function lessonSelectionIssues(p: Project, selection: LessonSelection): s
   return issues;
 }
 
-function moduleQuestions(selection: LessonSelection, questions: Question[], module: 'analysis' | 'practice') {
+function moduleQuestions(selection: LessonSelection, questions: Question[], module: 'analysis' | 'practice' | 'special') {
   const ids = selection.questionIdsByModule?.[module];
   return ids ? questions.filter(q => ids.includes(q.id)) : questions;
 }
@@ -193,7 +194,8 @@ export function buildLessonDeck(p: Project, selection: LessonSelection, layout:S
     if (chosen.includes('special')) {
       const kind = applicableSpecial(a.type)[0] as SpecialKind;
       const result = a.special!.versions.find(v => v.id === a.special!.active[kind])!.result;
-      result.items.filter(item => !['reading', 'listening', 'seven', 'cloze'].includes(a.type) || qs.some(q => q.id === item.question_id || q.id === item.blank_id)).forEach((item, i) => add('special', `${specialNames[kind]} · ${i + 1}`, a.title, specialContent(item), a.id));
+      const targets = moduleQuestions(selection, qs, 'special');
+      result.items.filter(item => !['reading', 'listening', 'seven', 'cloze'].includes(a.type) || targets.some(q => q.id === item.question_id || q.id === item.blank_id)).forEach((item, i) => add('special', `${specialNames[kind]} · ${i + 1}`, a.title, specialContent(item), a.id));
     }
   }
   if (!slides.length) throw Error('所选范围没有可放映的内容，请选择题目或篇目内容');

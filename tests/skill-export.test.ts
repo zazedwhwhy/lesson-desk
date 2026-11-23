@@ -24,13 +24,65 @@ function vocabularyManifest() {
     memoryExample: 'The curtain shades the window.', exampleTranslation: '窗帘为这扇窗遮阳。',
     evidence: {blockId: 'p1', quote: paragraph.text},
   }];
-  return {project: {
+  return {selection: [{passageId: 'reading', module: 'source'}, {passageId: 'reading', module: 'lexicon'}], project: {
     title: '校园阅读 · 词汇手账', subject: 'english',
     sources: [{id: 'paper', name: '校园阅读', role: 'paper', kind: 'text', blocks: [paragraph]}],
     passages: [{id: 'reading', title: 'Planting Trees', type: 'reading', paragraphs: [paragraph], lexicon}],
     questions: [],
   }};
 }
+
+it('拼错的嵌套字段报出路径，漏生成的所选模块阻断出片', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-scope-'));
+  try {
+    const manifest = vocabularyManifest();
+    const output = path.join(root, 'output');
+    const {lexicon, ...passage} = manifest.project.passages[0];
+    const project = {...manifest.project, passages: [passage]};
+    await expect(buildSkillLesson({...manifest, project: {...project, passages: [{...passage, lexcion: lexicon}]}}, root, output))
+      .rejects.toThrow('project.passages.0.lexcion');
+    await expect(buildSkillLesson({...manifest, project}, root, output)).rejects.toThrow(/Planting Trees.*词汇手账/);
+    await expect(buildSkillLesson({project}, root, output)).rejects.toThrow('导出 PPT 需要 selection');
+    await expect(readFile(path.join(output, '讲评课件.lesson.zip'))).rejects.toMatchObject({code: 'ENOENT'});
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
+
+it('按答案原文阻断不一致的参考答案，明确试解只能以待核对稿保存', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-answer-'));
+  try {
+    const {project} = vocabularyManifest();
+    const key = {id: 'key', name: '答案', role: 'answer', kind: 'text', blocks: [{id: 'a21', text: '21. B'}]};
+    const question = {id: 'q21', number: '21', passageId: 'reading', type: 'reading', sourceId: 'paper',
+      stem: 'Why did the students plant trees?', options: ['A. Fruit', 'B. Shade'],
+      analysis: {answer: 'A', text: 'The phrase “to shade” gives the purpose.'}};
+    const selection = [{passageId: 'reading', questionId: 'q21', module: 'analysis'}];
+    const ref = {sourceId: 'key', blockId: 'a21', quote: '21. B'};
+    const manifest = {selection, project: {...project, sources: [...project.sources, key],
+      questions: [{...question, answer: 'A', answerEvidence: ref}]}};
+    await expect(buildSkillLesson(manifest, root, path.join(root, 'bad-key'))).rejects.toThrow(/第 21 题.*答案.*B/);
+    const longerKey = {...key, blocks: [{id: 'a21', text: '21. BC'}]};
+    await expect(buildSkillLesson({selection, project: {...manifest.project, sources: [...project.sources, longerKey],
+      questions: [{...question, answer: 'B', answerEvidence: ref}]}}, root, path.join(root, 'partial-key')))
+      .rejects.toThrow(/第 21 题.*完整答案行/);
+    await expect(buildSkillLesson({...manifest, project: {...project, questions: [{...question, answer:'A'}]}},
+      root, path.join(root, 'unbound'))).rejects.toThrow(/第 21 题.*答案来源/);
+    const draft = {project: {...project, questions: [{...question, trialAnswer: 'A'}]}};
+    const trial = await buildSkillLesson(draft, root, path.join(root, 'trial'), false, true);
+    const imported = await new Store(path.join(root, 'imported')).unpack(await readFile(trial.bundle));
+    expect(imported.questions[0]).toMatchObject({answer: '', confirmed: false, versions: [{answer: 'A', conflict: true}]});
+    expect(await readFile(trial.review, 'utf8')).toContain('待核对试解');
+    await expect(buildSkillLesson({...draft, selection}, root, path.join(root, 'not-ready')))
+      .rejects.toThrow(/第 21 题.*待核对试解/);
+    const confirmed = {selection, project: {...project, questions: [{...question, answer: 'A', answerOrigin: 'teacher'}]}};
+    await expect(buildSkillLesson(confirmed, root, path.join(root, 'unapproved'))).rejects.toThrow(/第 21 题.*教师/);
+    const reviewed = await buildSkillLesson(confirmed, root, path.join(root, 'confirmed'), true);
+    expect(reviewed.pages).toBeGreaterThan(0);
+  } finally {
+    await rm(root, {recursive: true, force: true});
+  }
+});
 
 it('只有原文时也能生成词汇手账，导入后保留原句、例句译文和自动回忆题', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-lexicon-'));
@@ -79,7 +131,7 @@ it('独立专项讲评进入英语原生讲义和 PPT，教师确认原题后仍
   const root = await mkdtemp(path.join(os.tmpdir(), 'lesson-skill-special-'));
   try {
     const stem = 'Write an email to welcome new students. Include two activities.';
-    const manifest = {project: {subject: 'english', title: '写作审题单',
+    const manifest = {selection: [{passageId: 'writing', module: 'special'}], project: {subject: 'english', title: '写作审题单',
       sources: [{id: 'paper', name: '原卷', role: 'paper', kind: 'text', blocks: [{id: 'b1', text: stem}]}],
       questions: [{id: 'q1', number: '1', passageId: 'writing', type: 'writing', sourceId: 'paper', stem}],
       passages: [{id: 'writing', title: 'Welcome email', type: 'writing', paragraphs: [],
@@ -111,9 +163,12 @@ it('独立考点演练无需生成原题解析即可进入 PPT 和导入讲义',
   try {
     const {project} = vocabularyManifest();
     const skill = demoExercise();
+    const key = {id: 'key', name: '答案', role: 'answer', kind: 'text', blocks: [{id: 'a1', text: '1. A'}]};
     const q = {id: 'q1', number: '1', passageId: 'reading', type: 'reading', sourceId: 'paper',
-      stem: 'Why did the students plant trees?', options: ['A. Shade', 'B. Fruit'], answer: 'A', practice: skill};
-    const result = await buildSkillLesson({project: {...project, questions: [q]}}, root, path.join(root, 'output'));
+      stem: 'Why did the students plant trees?', options: ['A. Shade', 'B. Fruit'], answer: 'A', practice: skill,
+      answerEvidence: {sourceId: 'key', blockId: 'a1', quote: '1. A'}};
+    const result = await buildSkillLesson({selection: [{passageId: 'reading', questionId: 'q1', module: 'practice'}],
+      project: {...project, sources: [...project.sources, key], questions: [q]}}, root, path.join(root, 'output'));
     const imported = await new Store(path.join(root, 'imported')).unpack(await readFile(result.bundle));
     expect(imported.questions[0].versions).toEqual([]);
     expect(questionExercise(imported, imported.questions[0])?.answer).toBe(skill.answer);
@@ -158,7 +213,7 @@ it('自动修正复用来源证据校验，导入保留可撤销记录', async (
     const corrected = 'Why did the students plant trees?', before = 'Why did the students plant flowers?';
     project.sources[0].blocks.push({id: 'stem', text: corrected});
     const manifest = {project: {...project,
-      questions: [{id: 'q1', number: '1', passageId: 'reading', type: 'reading', sourceId: 'paper', stem: before, answer: 'A', options: ['A. Shade', 'B. Fruit']}],
+      questions: [{id: 'q1', number: '1', passageId: 'reading', type: 'reading', sourceId: 'paper', stem: before, options: ['A. Shade', 'B. Fruit']}],
       correction: {plan: {operations: [{kind: 'question', questionId: 'q1', field: 'stem', before, after: corrected,
         reason: '对照原卷改回 trees', evidence: [{sourceId: 'paper', blockId: 'stem', quote: corrected}]}], unresolved: []}},
     }};
@@ -180,15 +235,20 @@ it('同包生成讲评与词汇手账，保留原文件并跳过答案冲突题'
     const paragraph = {id: 'p1', text: 'The students planted trees to shade the playground.'};
     const project = {
       title: '每周阅读讲评', subject: 'english',
-      sources: [{id: 'paper', name: 'paper.pdf', role: 'paper', kind: 'pdf', blocks: [paragraph]}],
+      sources: [{id: 'paper', name: 'paper.pdf', role: 'paper', kind: 'pdf', blocks: [paragraph]},
+        {id: 'key', name: '答案', role: 'answer', kind: 'text', blocks: [{id: 'a21-22', text: '21–22 AB'}]}],
       passages: [{...vocabularyManifest().project.passages[0], paragraphs: [paragraph]}],
       questions: [21, 22].map(number => ({
         id: `q${number}`, number: String(number), passageId: 'reading', type: 'reading',
         sourceId: 'paper', stem: 'Why did the students plant trees?', options: ['A. Shade', 'B. Fruit'], answer: number === 21 ? 'A' : 'B',
+        answerEvidence: {sourceId: 'key', blockId: 'a21-22', quote: '21–22 AB'},
         analysis: {answer: 'A', text: 'The phrase “to shade” gives the purpose.', evidence: [{blockId: 'p1', quote: 'to shade the playground'}]},
       })),
     };
-    const result = await buildSkillLesson({project, assets: {paper: 'paper.pdf'}}, root, path.join(root, 'output'));
+    const selection = [...vocabularyManifest().selection, {passageId: 'reading', questionId: 'q21', module: 'analysis'}];
+    const result = await buildSkillLesson({project, selection, assets: {paper: 'paper.pdf'}}, root, path.join(root, 'output'));
+    await expect(buildSkillLesson({project, selection: [...selection, {passageId: 'reading', questionId: 'q22', module: 'analysis'}],
+      assets: {paper: 'paper.pdf'}}, root, path.join(root, 'includes-conflict'))).rejects.toThrow(/第 22 题.*待核实/);
     const store = new Store(path.join(root, 'imported'));
     const imported = await store.unpack(await readFile(result.bundle));
     expect(imported.questions.map(q => [q.answer, q.confirmed, q.excluded, q.versions[0].conflict])).toEqual([['A', false, false, false], ['B', false, true, true]]);
@@ -212,12 +272,15 @@ it('语文核对稿使用原文引用和题号，导入后讲义仍待确认', a
   try {
     await writeFile(path.join(root, 'page.png'), sampleImage);
     const original = '细雨停了，屋檐还在滴水。';
-    const manifest = {project: {title: '现代文讲评', subject: 'chinese',
-      sources: [{id: 'paper', name: '原卷', role: 'paper', kind: 'text', blocks: [{id: 'b1', text: original}]}],
+    const manifest = {selection: [{groupId: 'g1', module: 'source'}, {groupId: 'g1', questionId: 'q7', module: 'analysis'}],
+      project: {title: '现代文讲评', subject: 'chinese',
+      sources: [{id: 'paper', name: '原卷', role: 'paper', kind: 'text', blocks: [{id: 'b1', text: original}]},
+        {id: 'key', name: '答案', role: 'answer', kind: 'text', blocks: [{id: 'a7', text: '第 7 题：雨后安静。'}]}],
       review: {coverage: 'partial', checkedQuestionIds: ['q7'], limitations: ['原页图待人工确认'], findings: []},
       groups: [{id: 'g1', section: '现代文阅读', title: '雨后', kind: 'literature',
         materials: [{id: 'm1', title: '雨后原文', text: original, sourceId: 'paper', blockIds: ['b1'], imageFile: 'page.png'}],
-        questions: [{id: 'q7', number: '7', stem: '末句表现了怎样的环境？', format: 'short', materialIds: ['m1'], answer: '雨后安静。'}],
+        questions: [{id: 'q7', number: '7', stem: '末句表现了怎样的环境？', format: 'short', materialIds: ['m1'], answer: '雨后安静。',
+          answerEvidence: {sourceId: 'key', blockId: 'a7', quote: '第 7 题：雨后安静。'}}],
         versions: [{module: 'analysis', questionId: 'q7', result: {status: 'ok', notices: [], blocks: [
           {label: '分析', text: '滴水声衬托雨后的安静。', evidence: [{materialId: 'm1', quote: '屋檐还在滴水'}]},
         ]}}],
@@ -236,6 +299,14 @@ it('语文核对稿使用原文引用和题号，导入后讲义仍待确认', a
     const ppt = unzipSync(await readFile(result.pptx));
     expect(strFromU8(ppt['ppt/slides/slide4.xml'])).toContain('雨后安静。');
     expect(strFromU8(ppt['ppt/slides/slide4.xml'])).toContain('屋檐还在滴水');
+    const {answerEvidence: _answerEvidence, ...q7} = manifest.project.groups[0].questions[0];
+    const trial = {project: {...manifest.project, groups: [{...manifest.project.groups[0],
+      questions: [{...q7, answer: '', trialAnswer: '雨后安静。'}]}]}};
+    const trialResult = await buildSkillLesson(trial, root, path.join(root, 'trial'), false, true);
+    const pending = await new Store(path.join(root, 'trial-imported')).unpack(await readFile(trialResult.bundle));
+    expect(pending.chinese!.groups[0].versions[0]).toMatchObject({confirmed: false, result: {status: 'needs_review'}});
+    await expect(buildSkillLesson({...trial, selection: manifest.selection}, root, path.join(root, 'trial-ppt')))
+      .rejects.toThrow(/第 7 题.*待核对试解/);
     manifest.project.groups[0].versions[0].result.blocks[0].evidence[0].quote = '大风吹过';
     await expect(buildSkillLesson(manifest, root, path.join(root, 'invalid'))).rejects.toThrow('讲义引用与关联材料不一致');
   } finally {
@@ -248,10 +319,11 @@ it('化学课件可保留题图和公式，教师核对选项进入原生项目�
   try {
     const image = sampleImage;
     await writeFile(path.join(root, 'figure.png'), image);
-    const manifest = {project: {title: '化学反应讲评', subject: 'chemistry',
+    const manifest = {selection: [{questionId: 'q4', module: 'source'}, {questionId: 'q4', module: 'analysis'}],
+      project: {title: '化学反应讲评', subject: 'chemistry',
       sources: [{id: 'paper', name: '原卷', role: 'paper', kind: 'text', blocks: [{id: 'b1', text: '写出氢气燃烧的化学方程式。'}]}],
       review: {coverage: 'partial', checkedQuestionIds: ['q4'], limitations: ['报告记录文字校对范围'], findings: []},
-      questions: [{id: 'q4', number: '4', stem: '写出氢气燃烧的化学方程式。', answer: '$\\ce{2H2 + O2 -> 2H2O}$', sourceId: 'paper', imageMode: 'vision',
+      questions: [{id: 'q4', number: '4', stem: '写出氢气燃烧的化学方程式。', answer: '$\\ce{2H2 + O2 -> 2H2O}$', answerOrigin: 'teacher', sourceId: 'paper', imageMode: 'vision',
         images: [{id: 'i1', name: '原题图', file: 'figure.png'}],
         versions: [{module: 'analysis', result: {status: 'ok', notices: [], blocks: [{label: '方程式', text: '$\\ce{2H2 + O2 -> 2H2O}$'}]}}],
       }],
@@ -266,6 +338,13 @@ it('化学课件可保留题图和公式，教师核对选项进入原生项目�
     const ppt = unzipSync(await readFile(result.pptx));
     expect(Object.keys(ppt).some(part => /^ppt\/media\/.*\.svg$/.test(part))).toBe(true);
     expect(Object.entries(ppt).some(([part, bytes]) => /^ppt\/media\/.*\.png$/.test(part) && Buffer.from(bytes).equals(image))).toBe(true);
+    const {answerOrigin: _answerOrigin, ...q4} = manifest.project.questions[0];
+    const trial = {project: {...manifest.project, questions: [{...q4, answer: '', trialAnswer: q4.answer}]}};
+    const trialResult = await buildSkillLesson(trial, root, path.join(root, 'trial'), false, true);
+    const pending = await new Store(path.join(root, 'trial-imported')).unpack(await readFile(trialResult.bundle));
+    expect(pending.chemistry!.questions[0].versions[0]).toMatchObject({confirmed: false, result: {status: 'needs_review'}});
+    await expect(buildSkillLesson({...trial, selection: manifest.selection}, root, path.join(root, 'trial-ppt')))
+      .rejects.toThrow(/第 4 题.*待核对试解/);
   } finally {
     await rm(root, {recursive: true, force: true});
   }
