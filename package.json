@@ -1,6 +1,6 @@
 {
   "name": "lesson-desk",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "private": true,
   "description": "英语、语文与化学试卷讲解工作台",
   "main": "dist-desktop/main.cjs",
@@ -19,6 +19,7 @@
     "@napi-rs/canvas": "1.1.0",
     "@xmldom/xmldom": "0.8.15",
     "fflate": "^0.8.2",
+    "image-size": "2.0.3",
     "lucide-react": "^0.468.0",
     "mammoth": "^1.11.0",
     "mathjax-full": "3.2.2",
@@ -46,7 +47,7 @@
     "appId": "top.rainhollow.lessondesk",
     "productName": "讲题工作台",
     "directories": {
-      "output": "release/0.18.1"
+      "output": "release/0.18.2"
     },
     "files": [
       "dist/**",

@@ -9,7 +9,7 @@ import {OcrReview} from './OcrReview';
 import {ChemistryWorkspace} from './ChemistryWorkspace';
 import {notebookBeta} from '../core/release-channel';
 const Notebook=notebookBeta?React.lazy(()=>import('./Notebook').then(m=>({default:m.Notebook}))):null;
-import {defaultPptTemplate,type PptTemplate} from '../core/ppt-templates';
+import {builtinById,defaultPptTemplate,type PptTemplate} from '../core/ppt-templates';
 import {LessonSlideView} from './LessonSlideView';
 import {ChineseWorkspace} from './ChineseWorkspace';
 import {PromptSettings} from './PromptSettings';
@@ -44,7 +44,7 @@ function App() {
 
     const [listLoading,setListLoading]=useState(true), [listError,setListError]=useState('');
     const [generationKinds,setGenerationKinds]=useState<GenerationContent[]>(['analysis']);
-    useEffect(()=>window.scrollTo(0,0),[screen]);
+    useEffect(()=>{window.scrollTo(0,0);},[screen]);
     const [reviewSelected, setReviewSelected] = useState<string[]>([]), [reviewReport, setReviewReport] = useState<string[]>([]);
     useEffect(() => { setReviewSelected([]); setReviewReport([]); }, [p?.id]);
     async function refresh() {
@@ -77,6 +77,7 @@ function App() {
     async function change(fn: (v: Project) => void) { if (!p)
         return; const n = structuredClone(p); fn(n); return save(n); }
     function enterProject(project:Project) {
+        setPptTemplate(project.pptTemplate ? builtinById[project.pptTemplate] : defaultPptTemplate);
         setP(project);setSelected(project.questions.filter(q=>!q.excluded).map(q=>q.id));
         setIndex(0);setTab('解析');setRecallMode(false);setReveal([]);setPaste('');setSourceId('');
         const ready=project.subject==='chemistry' ? project.chemistry!.questions.some(q=>q.versions.length)

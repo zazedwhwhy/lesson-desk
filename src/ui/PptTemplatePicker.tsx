@@ -2,7 +2,14 @@ import React,{useEffect,useState} from 'react';
 import {Upload} from 'lucide-react';
 import {builtinPptTemplates,type PptTemplate} from '../core/ppt-templates';
 import {invoke} from './api';
+import {SlideDrawing} from './LessonSlideView';
 import './ppt-templates.css';
+
+const sampleQuestion={title:'第 21 题',section:'阅读 A · 美国国家公园',kind:'question',blocks:[
+ {label:'',text:'Which park is famous for its biodiversity?'},
+ {label:'选项',text:'A. Great Smoky Mountains.\nB. Yosemite.'}
+]};
+const descriptions:Record<string,string>={paper:'连续读题，对照原文和批注',blue:'左侧定位题目，右侧展开讲解',forest:'每翻一页，揭示一条讲评要点'};
 
 type Props={value:PptTemplate;onChange:(value:PptTemplate)=>void;busy:boolean;onPending:(pending:boolean)=>void};
 export function PptTemplatePicker({value,onChange,busy,onPending}:Props){
@@ -26,8 +33,10 @@ export function PptTemplatePicker({value,onChange,busy,onPending}:Props){
   <legend>PPT 模板</legend>
   <div className="ppt-builtin-options" role="group" aria-label="内置 PPT 模板">{builtinPptTemplates.map(t=><label className={'ppt-template-option'+(value.id===t.id?' is-selected':'')} key={t.id}>
    <input type="radio" name="ppt-template" value={t.id} checked={value.id===t.id} onChange={()=>onChange(t)}/>
-   <span className={'ppt-miniature miniature-'+t.id} aria-hidden="true" style={{background:'#'+t.colors.background,color:'#'+t.colors.text,borderColor:'#'+t.colors.line}}><strong style={{color:'#'+t.colors.accent}}>{t.id==='forest'?'第 3 题 · 逐步讲解':'第 3 题'}</strong><span>{t.id==='forest'?'参考答案 B':'参考答案与解析'}</span><small style={{color:'#'+t.colors.muted}}>{t.id==='forest'?'下一页看依据':'从原文找依据'}</small></span>
-   <span className="ppt-template-name">{t.name}</span>
+   <span className="ppt-miniature" aria-hidden="true" style={{background:'#'+t.colors.background,borderColor:'#'+t.colors.line}}>
+    <SlideDrawing slide={sampleQuestion} template={t} projectTitle="国家公园" page={2} total={6}/>
+   </span>
+   <span className="ppt-template-name">{t.name}<small>{descriptions[t.id]}</small></span>
   </label>)}</div>
   <div className="ppt-custom-controls"><label>我的模板<select aria-label="我的 PPT 模板" value={value.custom?value.id:''} onChange={e=>{const template=custom.find(t=>t.id===e.target.value);if(template)onChange(template);}}><option value="" disabled>{custom.length?'选择已上传模板':'尚未上传模板'}</option>{custom.map(t=><option value={t.id} key={t.id}>{t.name}</option>)}</select></label><button type="button" onClick={()=>void upload()}><Upload size={16}/>{pending?'正在导入…':'上传 PPT 模板'}</button></div>
   <p className="ppt-template-help">支持 .pptx / .potx（25 MB 内），适合使用母版制作的模板。短内容合页，长内容自动分页；题面与答案分开呈现。</p>

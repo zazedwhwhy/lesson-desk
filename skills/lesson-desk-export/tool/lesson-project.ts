@@ -1,3 +1,4 @@
+import {builtinTemplateIds} from '../../../src/core/ppt-templates';
 import {z} from 'zod';
 import {emptyProject, passageSchema, projectSchema, questionSchema, sourceSchema, uid, type Project} from '../../../src/core/model';
 import {resolveEvidence} from '../../../src/core/evidence';
@@ -47,6 +48,7 @@ const chemistryQuestion = chemQuestionSchema.omit({images: true, versions: true,
   versions: z.array(z.object({module: z.enum(chemModules), result: chemResultSchema})).default([]),
 });
 export const manifestSchema = z.object({
+  pptTemplate:z.enum(builtinTemplateIds).optional(),
   project: z.discriminatedUnion('subject', [
     z.object({title: text, subject: z.literal('english'), sources: z.array(sourceInput), passages: z.array(englishPassage), questions: z.array(englishQuestion),
       review: z.object({includeExplanations: z.boolean().default(false), result: mergedProofreadResultSchema}).optional(),

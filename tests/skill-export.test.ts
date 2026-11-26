@@ -349,3 +349,18 @@ it('化学课件可保留题图和公式，教师核对选项进入原生项目�
     await rm(root, {recursive: true, force: true});
   }
 });
+
+it('Skill 模板决定实际 PPT 背景，并随课件包导入；拼错样式会阻断', async () => {
+  const root=await mkdtemp(path.join(os.tmpdir(),'lesson-skill-style-'));
+  try {
+    const raw=vocabularyManifest();
+    for (const [id,color] of [['paper','FAF7EF'],['blue','FFFCF5'],['forest','111621']]) {
+      const result=await buildSkillLesson({...raw,pptTemplate:id},root,path.join(root,id));
+      const pages=unzipSync(await readFile(result.pptx));
+      expect(strFromU8(pages['ppt/slides/slide1.xml'])).toContain(color);
+      const project=await new Store(path.join(root,'store')).unpack(await readFile(result.bundle));
+      expect(project.pptTemplate).toBe(id);
+    }
+    await expect(buildSkillLesson({...raw,pptTemplate:'missing'},root,path.join(root,'bad'))).rejects.toThrow(/pptTemplate/);
+  } finally {await rm(root,{recursive:true,force:true});}
+});

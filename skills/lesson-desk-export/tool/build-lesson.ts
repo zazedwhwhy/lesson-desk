@@ -2,6 +2,7 @@ import {copyFile, mkdir, mkdtemp, readFile, realpath, rm, rmdir, stat, writeFile
 import os from 'node:os';
 import path from 'node:path';
 import {strToU8, zipSync} from 'fflate';
+import {builtinById, defaultPptTemplate} from '../../../src/core/ppt-templates';
 import {exportPpt} from '../../../src/desktop/export';
 import {parseManifest, prepareLesson, preparePreview} from './lesson-project';
 import {selectSkillContent} from './skill-selection';
@@ -48,6 +49,8 @@ export async function buildSkillLesson(raw: unknown, inputDirectory: string, out
   }
   for (const source of draftProject.sources) if (source.kind !== 'text' && !source.asset) throw Error(`缺少原文件 ${source.name}`);
   const project = attachSkillWorkflow(draftProject, manifest.project, issues, bundleOnly);
+  const template = manifest.pptTemplate ? builtinById[manifest.pptTemplate] : defaultPptTemplate;
+  if (manifest.pptTemplate) project.pptTemplate = manifest.pptTemplate;
   const preview = teacherReviewed || !manifest.selection ? project : preparePreview(project);
   const selection = manifest.selection && selectSkillContent(preview, manifest.selection, issues);
   files['project.json'] = strToU8(JSON.stringify(project));
@@ -60,7 +63,7 @@ export async function buildSkillLesson(raw: unknown, inputDirectory: string, out
   const draft = stage && path.join(stage, 'lesson.pptx');
   try {
     let pages = 0;
-    if (draft && selection) pages = await exportPpt(preview, draft, selection);
+    if (draft && selection) pages = await exportPpt(preview, draft, selection, {template});
     const pptx = draft && path.join(out, teacherReviewed ? '讲评课件.pptx' : '讲评课件-待核对.pptx');
     const bundle = path.join(out, '讲评课件.lesson.zip');
     const review = path.join(out, '核对清单.md');
@@ -68,6 +71,7 @@ export async function buildSkillLesson(raw: unknown, inputDirectory: string, out
       '# 课件核对清单', '', project.title, '',
       teacherReviewed ? '本次按教师确认状态生成。' : '课件包中的题面、题图和需要教师确认的讲义仍保留待核对状态。',
       ...(pptx && !teacherReviewed ? ['PPT 为待教师核对稿。'] : []),
+      ...(pptx ? ['PPT 模板：' + template.name] : []),
       '', ...[...new Set(issues)].map(item => `- ${item}`), '',
     ].join('\n');
     await mkdir(out);

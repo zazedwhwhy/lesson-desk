@@ -105,6 +105,14 @@ export function lessonSelectionIssues(p: Project, selection: LessonSelection): s
   const issues: string[] = [];
   if (!selection.passageIds.length) issues.push('请至少选择一篇材料');
   if (!selection.passageIds.some(pid => selection.modules[pid]?.length)) issues.push('请至少选择一种内容');
+  const selectedIds=new Set(selection.questionIds);
+  for (const id of selectedIds) {
+    const question=p.questions.find(q=>q.id===id && !q.excluded && selection.passageIds.includes(q.passageId));
+    if(!question)issues.push('所选题目已排除、已移除或不属于所选篇目，请重新编排：'+id);
+  }
+  for (const ids of Object.values(selection.questionIdsByModule ?? {})) {
+    for (const id of ids) if(!selectedIds.has(id))issues.push('模块所选题目不在本次授课范围：'+id);
+  }
   for (const pid of selection.passageIds) {
     const a = p.passages.find(a => a.id === pid);
     if (!a) { issues.push('所选篇目已不存在'); continue; }
@@ -112,6 +120,7 @@ export function lessonSelectionIssues(p: Project, selection: LessonSelection): s
     for (const m of selection.modules[pid] || []) {
       if (m === 'analysis' || m === 'practice') {
         const targets = moduleQuestions(selection, qs, m);
+        if (!targets.length && m === 'analysis') issues.push(a.title+' · 逐题讲评：请先勾选题目');
         for (const q of targets) { const reason = lessonAvailability(p, pid, m, q.id); if (reason) issues.push(`${a.title} · 第${q.number}题 · ${lessonModuleNames[m]}：${reason}`); }
         if (!targets.length && m === 'practice') { const reason = lessonAvailability(p, pid, m); if (reason) issues.push(`${a.title} · 考点演练：${reason}`); }
       } else {

@@ -153,7 +153,3 @@
 .prep-question-fold>summary small {font:13px/1.4 'Microsoft YaHei',sans-serif;color:var(--prep-muted);}
 .prep-question-fold>.panel { background:transparent; padding:0; border:0; box-shadow:none; }
 .lesson-group-body>summary { color:var(--annotation); font-size:14px; }
-.lesson-setup .ppt-miniature.miniature-blue { display:grid; grid-template-columns:1fr 2fr; align-content:center; gap:4px 10px; }
-.miniature-blue strong {grid-row:span 2;border-right:1px solid currentColor;}
-.miniature-forest strong {order:3;font-size:13px;}
-.miniature-forest>span {font-size:18px;font-weight:600;}

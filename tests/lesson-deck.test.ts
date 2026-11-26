@@ -31,3 +31,10 @@ it('同一练习不重复放映，专项讲评中的依据和答案进入课件'
   expect(special).toContain('great variety of plant and animal life');
   expect(special).toContain('A');
 });
+
+it('失效题号或空的逐题讲评不能被所选原文掩盖',()=>{
+ const p=demoProject(), selection=defaultLessonSelection(p);
+ selection.modules[p.passages[0].id]=['source','analysis'];
+ expect(()=>buildLessonDeck(p,{...selection,questionIds:['deleted']})).toThrow(/所选题目/);
+ expect(()=>buildLessonDeck(p,{...selection,questionIds:[]})).toThrow(/请先勾选题目/);
+});

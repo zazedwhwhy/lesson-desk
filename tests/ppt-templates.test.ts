@@ -6,7 +6,7 @@ import pptxgen from 'pptxgenjs';
 import {strFromU8,strToU8,unzipSync,zipSync} from 'fflate';
 import {builtinPptTemplates} from '../src/core/ppt-templates';
 import {TemplateStore,inspectTemplate} from '../src/desktop/ppt-templates';
-import {exportPpt} from '../src/desktop/export';
+import {exportPpt,exportLessonSlides} from '../src/desktop/export';
 import {demoProject} from '../src/core/demo';
 import {defaultLessonSelection} from '../src/core/lesson-deck';
 
@@ -68,4 +68,14 @@ it('模板绝对资源路径重新定位到导入区，4:3 正文尺寸用于分
  const out=path.join(dir,'out.pptx'),p=demoProject();await exportPpt(p,out,defaultLessonSelection(p),await store.load(template.id));
  const result=unzipSync(new Uint8Array(await readFile(out))),rel=strFromU8(result['lessonTemplate/'+masterRel]);
  expect(rel).not.toContain('Target="/ppt/');expect(rel).toContain('../theme/theme1.xml');
+});
+
+it('公共写出入口阻断空课件、缺失母版和混合图文页，保留已有文件',async()=>{
+ const dir=await temp(),file=path.join(dir,'saved.pptx');
+ await writeFile(file,'existing');
+ const slide={title:'题面',section:'试卷',kind:'question',blocks:[{label:'',text:'已选原题'}]};
+ await expect(exportLessonSlides([],'测试','chinese',file)).rejects.toThrow(/没有可导出/);
+ await expect(exportLessonSlides([slide],'测试','chinese',file,{template:{...builtinPptTemplates[0],custom:true}})).rejects.toThrow(/资源未加载/);
+ await expect(exportLessonSlides([{...slide,image:'image'}],'测试','chinese',file)).rejects.toThrow(/题图页和文字页/);
+ expect(await readFile(file,'utf8')).toBe('existing');
 });

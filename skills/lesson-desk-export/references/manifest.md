@@ -1,8 +1,20 @@
 # 生成输入
 
-UTF-8 JSON 顶层有 `project`、`selection`、可选 `assets` 和可选 `reviewNotes`。`assets` 把来源 ID 映射到原文件路径，例如 `{"paper":"inputs/paper.pdf","key":"inputs/key.docx"}`。`reviewNotes` 是给教师看的待核对条目数组，写清题号、缺失项和可采取的核对动作。路径以 JSON 所在目录为基准。按授课顺序排列篇目、材料组和题目。未知字段会报错并带出字段路径。旧版 `manifest.json` 出 PPT 时需补 `selection` 和已有答案的来源。已经生成的课件包仍可导入。
+UTF-8 JSON 顶层有 `project`、`selection`、可选 `pptTemplate`、可选 `assets` 和可选 `reviewNotes`。`assets` 把来源 ID 映射到原文件路径，例如 `{"paper":"inputs/paper.pdf","key":"inputs/key.docx"}`。`reviewNotes` 是给教师看的待核对条目数组，写清题号、缺失项和可采取的核对动作。路径以 JSON 所在目录为基准。按授课顺序排列篇目、材料组和题目。未知字段会报错并带出字段路径。旧版 `manifest.json` 出 PPT 时需补 `selection` 和已有答案的来源。已经生成的课件包仍可导入。
 
 所有学科的 `project` 都需要 `title`、`subject`、`sources`。来源用 `{ "id":"paper", "name":"试卷.pdf", "role":"paper", "kind":"pdf", "blocks":[{"id":"b1","text":"原文逐字摘录","page":2}] }`。`role` 可取 `paper/answer/listening`，`kind` 可取 `pdf/docx/text`。至少提供一个 `paper`。PDF 和 DOCX 在 `assets` 中关联该 ID 对应的原文件；粘贴文本使用 `text`，直接保存原文块。页码从 1 起，未知时省略。尽量把题干和参考答案也放在各自来源的文字块里。各层 ID 用唯一、稳定的英文标识，引用使用实际存在的 ID。
+
+### 授课 PPT 样式
+
+在清单顶层写 `"pptTemplate":"paper"`、`"blue"` 或 `"forest"`。省略时使用纸面教案。老师指定样式时，同一次导出的题目、原图和答案都沿用该样式。
+
+| 值 | 工作台名称 | 上课怎么翻 |
+| --- | --- | --- |
+| `paper` | 纸面教案 | 先展示原题，再用纸色底和朱色批注并读答案、解析与证据。 |
+| `blue` | 包豪斯板书 | 蓝色左栏保留篇目和题号，右侧留给原文、图或讲解。 |
+| `forest` | 影院暗场 | 深色底突出当前要点。讲评中的答案、解析和原文依据可逐页揭示。 |
+
+三种模板使用与桌面放映相同的分页和题面顺序，正文可在 PowerPoint 中编辑。用新版工作台打开课件包时会采用清单中指定的模板；教师可在编排页切换。同一份材料要出三版时，复用同一个 `project` 和 `selection`，分别指定三种 `pptTemplate`，各自输出到新目录。
 
 ### 交付范围
 

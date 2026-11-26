@@ -1,62 +1,79 @@
-import {withFormulaPreviews} from './ppt-formula-preview';
-import {hasMath,mathLines} from '../core/math-text';
-import {chemSlides} from '../core/chemistry';
 import fs from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {imageSize} from 'image-size';
 import pptxgen from 'pptxgenjs';
+import {mathLines} from '../core/math-text';
+import {chemSlides} from '../core/chemistry';
 import {chineseSlides} from '../core/chinese';
 import {buildLessonDeck,type LessonSelection} from '../core/lesson-deck';
-import {bodyFontSize,layoutBlocks} from '../core/slide-layout';
 import {defaultPptTemplate} from '../core/ppt-templates';
+import {projectSlide,type ProjectedSlide,type PageItem} from '../core/ppt-page';
 import {applyTemplate,type LoadedTemplate} from './ppt-templates';
+import {withFormulaPreviews} from './ppt-formula-preview';
+import {atomicRename} from './atomic-rename';
 import type {Project} from '../core/model';
 
 export async function exportPpt(p:Project,file:string,selection:LessonSelection|string[],loaded:LoadedTemplate={template:defaultPptTemplate}){
- const {template,imported}=loaded,{layout,colors,fonts}=template;
- if(template.custom&&!imported)throw Error('自定义模板资源未加载，无法导出');
- const deck=p.subject==='chemistry'?chemSlides(p.chemistry!,selection as string[],layout):p.subject==='chinese'?chineseSlides(p.chinese!,selection as string[],layout):buildLessonDeck(p,selection as LessonSelection,layout);
+ const {layout}=loaded.template;
+ const deck=p.subject==='chemistry'?chemSlides(p.chemistry!,selection as string[],layout)
+   :p.subject==='chinese'?chineseSlides(p.chinese!,selection as string[],layout):buildLessonDeck(p,selection as LessonSelection,layout);
  return exportLessonSlides(deck,p.title,p.subject,file,loaded);
 }
-export async function exportLessonSlides(deck:{title:string;section:string;kind:string;blocks:{label:string;text:string;emphasis?:boolean;math?:boolean}[];image?:string}[],projectTitle:string,subject:string,file:string,loaded:LoadedTemplate={template:defaultPptTemplate}){
- const {template,imported}=loaded,{layout,colors,fonts}=template;
- const ppt=new pptxgen();ppt.defineLayout({name:'LESSON',width:layout.width,height:layout.height});ppt.layout='LESSON';
- ppt.author='讲题工作台';ppt.subject=subject==='chemistry'?'化学试卷讲解':subject==='chinese'?'语文试卷讲解':'英语试卷讲解';ppt.title=projectTitle;
- ppt.theme={headFontFace:fonts.heading,bodyFontFace:fonts.body};
- deck.forEach((s,i)=>{
-  const slide=ppt.addSlide(),{body,title}=layout;
-  slide.background={color:colors.background};
-  if(title.y>=.36)slide.addText(s.section,{x:title.x,y:Math.max(.08,title.y-.32),w:title.w,h:.22,fontFace:fonts.body,fontSize:10,color:colors.muted,margin:0,fit:'shrink'});
-  slide.addText(s.title,{...title,fontFace:fonts.heading,fontSize:28,color:colors.accent,margin:0,fit:'shrink',valign:'middle',breakLine:false});
-  if(!template.custom){
-   const rule=title.x+title.w<body.x?{x:body.x-.24,y:body.y,w:0,h:body.h}
-    :{x:body.x,y:title.y>body.y?title.y-.40:body.y-.24,w:body.w,h:0};
-   slide.addShape(ppt.ShapeType.line,{...rule,line:{color:colors.line,width:1}});
-  }
-  const image='image' in s?s.image:undefined;
-  if(image)slide.addImage({data:image as string,...body,sizing:{type:'contain',w:body.w,h:body.h}});
-  for(const b of layoutBlocks(s.blocks,layout,s.kind)){
-   if(b.y+b.h>body.y+body.h+.001)throw Error(`第 ${i+1} 页内容超过模板正文区域，已停止导出`);
-   if(b.label)slide.addText(b.label,{x:b.x,y:b.y,w:b.w,h:.22,fontFace:fonts.body,fontSize:11,color:colors.accent,bold:b.emphasis,margin:0,fit:'shrink'});
-   if(b.math&&hasMath(b.text)){
-    const size=bodyFontSize(s.kind),color=b.emphasis?colors.accent:colors.text;let y=b.textY;
-    for(const row of mathLines(b.text,b.w,size)){
-     for(const run of row.runs){const box={x:b.x+run.x,y:y+(row.h-run.h)/2,w:run.w,h:run.h};
-      if(run.formula){const svg=run.formula.svg.replace(/currentColor/g,'#'+color).replace(/width="[^"]+"/,`width="${run.w*144}px"`).replace(/height="[^"]+"/,`height="${run.h*144}px"`);slide.addImage({data:'image/svg+xml;base64,'+Buffer.from(svg).toString('base64'),...box,altText:run.raw});}
-      else if(run.text.trim())slide.addText(run.text,{...box,fontFace:fonts.body,fontSize:size,color,margin:0,valign:'middle',breakLine:false});
-     }
-     y+=row.h;
+
+function drawItem(slide:pptxgen.Slide,item:PageItem){
+ const {x,y,w,h}=item;
+ if(item.type==='rect'){
+  slide.addShape('rect',{x,y,w,h,line:{type:'none'},fill:{color:item.color},objectName:'版面'});
+  return;
+ }
+ if(item.type==='image'){
+  const {width,height}=imageSize(Buffer.from(item.data.slice(item.data.indexOf(',')+1),'base64'));
+  const scale=Math.min(w/width,h/height);
+  slide.addImage({data:item.data,x:x+(w-width*scale)/2,y:y+(h-height*scale)/2,w:width*scale,h:height*scale,altText:item.alt});
+  return;
+ }
+ const {pt,color,font}=item;
+ if(item.math){
+  let top=y;
+  for(const row of mathLines(item.text,w,pt)){
+   for(const run of row.runs){
+    const box={x:x+run.x,y:top+(row.h-run.h)/2,w:run.w,h:run.h};
+    if(run.formula){
+     const svg=run.formula.svg.replace(/currentColor/g,'#'+color).replace(/width="[^"]+"/,`width="${run.w*144}px"`).replace(/height="[^"]+"/,`height="${run.h*144}px"`);
+     slide.addImage({data:'image/svg+xml;base64,'+Buffer.from(svg).toString('base64'),...box,altText:run.raw});
+    } else if(run.text.trim()){
+     slide.addText(run.text,{...box,fontFace:font,fontSize:pt,color,bold:item.bold,margin:0,valign:'middle'});
     }
-   }else{
-   slide.addText(b.text,{x:b.x,y:b.textY,w:b.w,h:b.textH,fontFace:subject!=='english'?fonts.body:['source','question','practice'].includes(s.kind)?fonts.source:fonts.body,fontSize:bodyFontSize(s.kind),bold:!!b.emphasis,color:b.emphasis?colors.accent:colors.text,margin:0,valign:'top',breakLine:false,lineSpacingMultiple:1.08});
    }
+   top+=row.h;
   }
-  if(layout.height-(body.y+body.h)>=.34){
-   const y=layout.height-.32;
-   if(!template.custom)slide.addShape(ppt.ShapeType.line,{x:title.x,y:y-.18,w:body.w,h:0,line:{color:colors.line,width:.7}});
-   slide.addText(projectTitle,{x:body.x,y,w:body.w-1.2,h:.2,fontFace:fonts.body,fontSize:9,color:colors.muted,margin:0,fit:'shrink'});
-   slide.addText(`${i+1} / ${deck.length}`,{x:body.x+body.w-1.1,y,w:1.1,h:.2,align:'right',fontFace:fonts.body,fontSize:9,color:colors.muted,margin:0});
-  }
- });
+  return;
+ }
+ slide.addText(item.text,{x,y,w,h,fontFace:font,fontSize:pt,color,bold:item.bold,margin:0,
+  align:item.align,valign:'top',lineSpacingMultiple:1.02,paraSpaceAfter:0,paraSpaceBefore:0,
+  fit:item.fit?'shrink':undefined,objectName:item.role==='title'?item.text:item.role});
+}
+
+export async function exportLessonSlides(deck:ProjectedSlide[],projectTitle:string,subject:string,file:string,loaded:LoadedTemplate={template:defaultPptTemplate}){
+ const {template,imported}=loaded,{layout,colors,fonts}=template;
+ if(template.custom&&!imported)throw Error('自定义模板资源未加载，无法导出');
+ if(!deck.length)throw Error('所选范围没有可导出的幻灯片');
+ const ppt=new pptxgen();
+ ppt.defineLayout({name:'LESSON',width:layout.width,height:layout.height});
+ ppt.layout='LESSON';ppt.author='讲题工作台';ppt.title=projectTitle;
+ ppt.subject=subject==='chemistry'?'化学试卷讲解':subject==='chinese'?'语文试卷讲解':'英语试卷讲解';
+ ppt.theme={headFontFace:fonts.heading,bodyFontFace:fonts.body};
+ for(const [i,s] of deck.entries()){
+  const slide=ppt.addSlide();
+  slide.background={color:colors.background};
+  for(const item of projectSlide(s,template,projectTitle,i+1,deck.length,subject==='english'))drawItem(slide,item);
+ }
  const bytes=await withFormulaPreviews(new Uint8Array(await ppt.write({outputType:'arraybuffer'}) as ArrayBuffer));
- await fs.writeFile(file,imported?applyTemplate(bytes,imported):bytes);
+ const output=imported?applyTemplate(bytes,imported):bytes;
+ const temporary=file+'.'+randomUUID()+'.tmp';
+ try{
+  await fs.writeFile(temporary,output);
+  await atomicRename(temporary,file);
+ }finally{await fs.rm(temporary,{force:true});}
  return deck.length;
 }
