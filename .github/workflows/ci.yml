@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/lesson-desk-*-macos']
   pull_request:
   workflow_dispatch:
 
@@ -28,4 +28,13 @@ jobs:
       - name: Run local tests
         run: npm test
       - name: Build desktop application
+        if: ${{ !endsWith(github.ref_name, '-macos') }}
         run: npm run build
+      - name: Check the same packaged workflows on Windows
+        if: ${{ endsWith(github.ref_name, '-macos') }}
+        shell: pwsh
+        run: |
+          npm run package
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $version = node -p "require('./package.json').version"
+          node scripts/packaged-desktop-smoke.mjs "release/$version/win-unpacked/讲题工作台.exe"

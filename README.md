@@ -2,22 +2,21 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Prepare exam explanations and classroom slides from your own papers. Lesson Desk is a desktop app for teachers working with English, Chinese language and literature, and chemistry. Import a paper, check the questions and answers, generate the teaching material you need, then edit and arrange it for class.
+Prepare exam explanations and classroom slides from your own papers. Lesson Desk is a desktop app for Windows and macOS, built for teachers working with English, Chinese language and literature, and chemistry. Import a paper, check the questions and answers, generate the teaching material you need, then edit and arrange it for class.
 
-[Download for Windows](https://github.com/zazedwhwhy/lesson-desk/releases/latest) · [Beta releases](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) · [Report an issue](https://github.com/zazedwhwhy/lesson-desk/issues) · [MIT license](LICENSE)
+[Windows x64](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1/LessonDesk-0.18.1-Setup.exe) · [macOS (Apple silicon)](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-arm64.dmg) · [macOS (Intel)](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-x64.dmg) · [Report an issue](https://github.com/zazedwhwhy/lesson-desk/issues) · [MIT license](LICENSE)
 
 ![Lesson and PowerPoint layout](docs/images/ppt-setup.png)
 
 ## Download
 
-| Edition | Version | What to choose |
+| Platform | Release | Installer |
 | --- | --- | --- |
-| Stable | [0.18.0](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.0) | Regular lesson preparation without the mistake notebook |
-| Beta | [0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1) | Includes the experimental mistake notebook; marked as a prerelease |
+| Windows x64 | [0.18.1 stable](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1) | [Download EXE](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1/LessonDesk-0.18.1-Setup.exe) |
+| macOS with Apple silicon (arm64) | [0.18.1 preview](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1-macos.1) | [Download Apple silicon DMG](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-arm64.dmg) |
+| macOS with an Intel processor (x64) | [0.18.1 preview](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1-macos.1) | [Download Intel DMG](https://github.com/zazedwhwhy/lesson-desk/releases/download/v0.18.1-macos.1/LessonDesk-0.18.1-macOS-x64.dmg) |
 
-Download the `LessonDesk-<version>-Setup.exe` asset for Windows x64. Each release includes `SHA256SUMS.txt`.
-
-The macOS 0.18.0 preview builds separate DMGs for Apple silicon and Intel. See the [download and manual test guide](docs/releases/0.18.0.md#macos-试用包) (Chinese).
+Each release page includes `SHA256SUMS.txt`. The experimental mistake notebook is available in [Windows Beta 0.17.2-beta.1](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.17.2-beta.1).
 
 Stable and Beta have separate installation names and data folders. On its first launch, Beta copies existing stable data; subsequent changes stay in their respective editions and do not sync. Removing the notebook from Stable does not delete existing notebook data.
 
@@ -69,12 +68,12 @@ Custom PowerPoint templates contribute their layout, background, decoration and 
 
 ## Build from source
 
-Use Node.js 24 LTS and Git on Windows. The commands below check out the source used for the current stable release.
+Use Node.js 24 LTS and Git on Windows or macOS. Both 0.18.1 releases use the source at `v0.18.1`.
 
-```powershell
+```sh
 git clone https://github.com/zazedwhwhy/lesson-desk.git
 cd lesson-desk
-git checkout v0.18.0
+git checkout v0.18.1
 npm ci
 npm run build
 npm start
@@ -85,15 +84,16 @@ npm start
 | `npm run dev` | Browser UI preview; desktop import, storage and AI require Electron |
 | `npm test` | Local automated tests using synthetic data and mocked requests |
 | `npm run check:public` | Check tracked content for private data and credentials |
-| `npm run build` / `npm run package` | Build / package Stable |
-| `npm run package:mac` | Build the preview DMG on macOS for the current architecture |
+| `npm run build` / `npm run package` | Build the app / package the Windows stable installer |
+| `npm run package:mac` | Package a DMG for the current Mac architecture |
 | `npm run build:beta` / `npm run package:beta` | Build / package Beta |
 
 Installers are written to `release/`. Stable and Beta build outputs are separate. The app uses Electron, React and TypeScript.
 
 ## Documentation and contributions
 
-- [0.18.0 release notes](docs/releases/0.18.0.md)
+- [Windows 0.18.1 release notes](https://github.com/zazedwhwhy/lesson-desk/releases/tag/v0.18.1)
+- [macOS 0.18.1 installation notes](https://github.com/zazedwhwhy/lesson-desk/blob/v0.18.1-macos.1/docs/releases/0.18.1.md) (Chinese)
 - [Version history](docs/版本历史.md) (Chinese)
 - [Contributing](CONTRIBUTING.md)
 - [Development workflow](docs/开发与Git工作流.md) (Chinese)

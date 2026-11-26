@@ -41,7 +41,7 @@ import { reviseProject, issues, validateBundlePath } from '../core/logic';
 import { demoProject } from '../core/demo';
 let win: BrowserWindow, store: Store;
 const beta=notebookBeta;
-const windowsToolbarColor = '#f7f4ec'; // Matches --desk-toolbar in paper.css.
+const paperToolbarColor = '#f7f4ec'; // Matches --desk-toolbar in paper.css.
 const isolated=app.commandLine.hasSwitch('user-data-dir');
 // Copy Local State before Electron loads its encryption context at ready.
 if(!isolated)initializeStableData(path.join(app.getPath('appData'),beta?'lesson-desk-notebook-beta':'lesson-desk-stable'),(beta?['lesson-desk-stable','lesson-desk-beta','lesson-desk']:['lesson-desk-beta','lesson-desk']).map(name=>path.join(app.getPath('appData'),name)));
@@ -282,11 +282,14 @@ app.whenReady().then(async () => {
         minWidth: 1000,
         minHeight: 650,
         show: false,
-        backgroundColor: process.platform === 'win32' ? windowsToolbarColor : '#faf7ef',
+        backgroundColor: paperToolbarColor,
         ...(process.platform === 'win32' ? {
             icon: path.join(__dirname, '../assets/app-icon.ico'),
             titleBarStyle: 'hidden' as const,
-            titleBarOverlay: { color: windowsToolbarColor, symbolColor: '#302c26' },
+            titleBarOverlay: { color: paperToolbarColor, symbolColor: '#302c26' },
+        } : process.platform === 'darwin' ? {
+            titleBarStyle: 'hiddenInset' as const,
+            titleBarOverlay: true,
         } : {}),
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),

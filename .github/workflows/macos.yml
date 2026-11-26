@@ -2,7 +2,7 @@ name: macOS preview
 
 on:
   push:
-    branches: [main, codex/lesson-desk-0.18.0-macos]
+    branches: [main, 'codex/lesson-desk-*-macos']
   workflow_dispatch:
 
 permissions:
