@@ -1,8 +1,9 @@
 import type {PptTemplate} from './ppt-templates';
 import {bodyFontSize, labelFontSize, layoutBlocks, wrapSlideText, type Rect, type SlideBlock} from './slide-layout';
-import {hasMath} from './math-text';
+import type {QuestionLayout} from './question-layout';
+import {FormulaWidthError,hasMath} from './math-text';
 
-export type ProjectedSlide = {title:string; section:string; kind:string; blocks:SlideBlock[]; image?:string};
+export type ProjectedSlide = {title:string; section:string; kind:string; blocks:SlideBlock[]; image?:string;questionLayout?:QuestionLayout};
 type TextRole = 'title'|'section'|'project'|'folio'|'label'|'body';
 type TextItem = Rect & {
  type:'text'; role:TextRole; text:string; font:string; pt:number; color:string;
@@ -29,32 +30,40 @@ export function projectSlide(slide:ProjectedSlide, template:PptTemplate, project
  const folio=page+' / '+total;
  const paper=!template.custom && template.id==='paper';
  const blue=!template.custom && template.id==='blue';
- const cinema=!template.custom && template.id==='forest';
- if(blue) {
-  fill(box(0,0,3.46,height),colors.accent);
-  fill(box(.45,.52,.62,.13),'F4CB36');
-  text('section',slide.section,box(.45,.86,2.62,.54),15,'FFFFFF',fonts.body,{fit:true});
-  text('title',slide.title,title,34,'FFFFFF',fonts.heading,{bold:true,fit:true});
-  fill(box(.45,5.93,2.55,.018),'91A9E8');
-  text('project',project,box(.45,6.12,2.57,.53),13,'FFFFFF',fonts.body,{fit:true});
-  text('folio',folio,box(.45,6.82,2.56,.36),17,'FADD68',fonts.body,{bold:true});
- } else if(cinema) {
-  fill(box(0,6.16,width,1.34),'202A3C');
-  fill(box(.94,.44,.42,.07),'99B4FF');
-  text('section',slide.section,box(1.54,.31,10.82,.49),15,colors.muted,fonts.body,{fit:true});
-  text('title',slide.title,title,29,colors.text,fonts.heading,{bold:true,fit:true});
-  text('folio',folio,box(11.34,6.52,1.05,.38),15,colors.accent,fonts.body,{align:'right'});
- } else {
-  const section=paper?box(title.x,.23,title.w,.4):box(title.x,Math.max(.08,title.y-.32),title.w,.24);
-  if(paper||title.y>=.36)text('section',slide.section,section,paper?14:10,colors.muted,fonts.body,{fit:true});
-  text('title',slide.title,title,paper?34:28,colors.accent,fonts.heading,{bold:paper,fit:true});
-  if(paper)fill(box(body.x,1.47,body.w,.017),colors.line);
-  if(height-body.y-body.h>=.34) {
-   const y=paper?6.97:height-.32;
-   if(paper)fill(box(body.x,6.86,body.w,.012),colors.line);
-   text('project',project,box(body.x,y,body.w-1.2,paper ? .32 : .22),paper?12:9,colors.muted,fonts.body,{fit:true});
-   text('folio',folio,box(body.x+body.w-1.15,y,1.15,.32),paper?13:9,colors.muted,fonts.body,{align:'right'});
-  }
+ const mint=!template.custom && template.id==='forest';
+ if(blue){
+  fill(box(0,0,width,1.0),colors.accent);
+  fill(box(.31,.24,.10,.52),'F4CB36');
+  text('title',slide.title,title,31,'FFFFFF',fonts.heading,{bold:true,fit:true});
+  text('section',slide.section,box(8.8,.32,3.8,.49),16,'FFFFFF',fonts.body,{align:'right',fit:true});
+ }else if(mint){
+  fill(box(0,0,.14,height),'9ACBB4');
+  fill(box(.40,1.06,width-.8,5.96),'FFFFFF');
+  fill(box(.74,1.04,.86,.06),colors.accent);
+  text('title',slide.title,title,32,colors.accent,fonts.heading,{bold:true,fit:true});
+  text('section',slide.section,box(8.8,.40,3.76,.44),16,colors.muted,fonts.body,{align:'right',fit:true});
+ }else if(paper){
+  text('title',slide.title,title,32,colors.accent,fonts.heading,{bold:true,fit:true});
+  text('section',slide.section,box(8.8,.43,3.80,.44),15,colors.muted,fonts.body,{align:'right',fit:true});
+  fill(box(body.x,1.00,body.w,.016),colors.line);
+ }else{
+  if(title.y>=.36)text('section',slide.section,box(title.x,Math.max(.08,title.y-.32),title.w,.24),10,colors.muted,fonts.body,{fit:true});
+  text('title',slide.title,title,28,colors.accent,fonts.heading,{fit:true});
+ }
+ if(height-body.y-body.h>=.34){
+  const y=template.custom?height-.32:7.10;
+  text('project',project,box(body.x,y,body.w-1.25,.27),template.custom?9:11,colors.muted,fonts.body,{fit:true});
+  text('folio',folio,box(body.x+body.w-1.18,y,1.18,.28),template.custom?9:12,colors.muted,fonts.body,{align:'right',fit:true});
+ }
+ if(slide.questionLayout){
+  const {parts,figure}=slide.questionLayout;
+  const face=english?fonts.source:fonts.body;
+  parts.forEach((part,index)=>{
+   const block=slide.blocks[index];
+   text('body',block.text,part,part.pt,colors.text,face,{bold:part.stem,math:!!block.math && hasMath(block.text)});
+  });
+  if(figure)items.push({...figure.box,type:'image',data:figure.data,alt:figure.name+(figure.page?' · 原材料第 '+figure.page+' 页':'')});
+  return items;
  }
  if(slide.image && slide.blocks.length)throw Error('第 '+page+' 页同时含有原图与正文，请分为题图页和文字页');
  if(slide.image){
@@ -73,14 +82,16 @@ export function projectSlide(slide:ProjectedSlide, template:PptTemplate, project
  if(layout.classroom && used(blocks)<body.h*.72){
   const single=blocks.length===1 && blocks[0].emphasis && !blocks[0].math
     && Array.from(blocks[0].text.trim()).length<=12 && !blocks[0].text.includes('\n');
-  const maximum=single ? (cinema?67:46) : (cinema?35:33);
+  const maximum=single ? 34 : 29;
   for(let candidate=maximum;candidate>pt;candidate--){
-   const enlarged=layoutBlocks(slide.blocks,layout,slide.kind,candidate);
+   let enlarged:typeof blocks;
+   try{enlarged=layoutBlocks(slide.blocks,layout,slide.kind,candidate);}
+   catch(error){if(error instanceof FormulaWidthError)continue;throw error;}
    if(used(enlarged)<=body.h*.84){blocks=enlarged;pt=candidate;break;}
   }
  }
  const space=Math.max(0,body.h-used(blocks));
- const offset=layout.classroom ? space*(cinema ? .45 : blue ? .28 : .16) : 0;
+ const offset=layout.classroom ? Math.min(.22,space*.10) : 0;
  for(const b of blocks){
   const ink=b.emphasis?colors.accent:colors.text;
   if(layout.classroom && b.emphasis)fill(box(b.x-.19,b.y+offset+.035,.05,Math.max(.22,b.h-.08)),colors.accent);

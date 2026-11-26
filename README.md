@@ -64,7 +64,7 @@ Courseware, settings and templates are stored in the app's local user-data folde
 
 Review OCR, answers and generated explanations before teaching. Unresolved source differences remain available for review. Legacy `.doc` files and audio transcription are not supported.
 
-The built-in **Paper Lesson**, **Bauhaus Board**, and **Cinema** styles use the same layout and pagination in the app and PowerPoint. Paper keeps the answer, explanation, and evidence together when they fit. Bauhaus keeps the question title in a fixed blue column. Cinema reveals explanation blocks one page at a time. [Compare all three styles on the same question](docs/images/ppt-templates-0.18.2.jpg).
+The built-in **Paper Lesson**, **Bauhaus Board**, and **Mint Whiteboard** styles use the same layout and pagination in the app and PowerPoint. Paper keeps the answer, explanation, and evidence together when they fit. Bauhaus uses a compact blue header above a full-width question. Mint Whiteboard groups related explanations on a light writing surface. [Compare all three styles on the same question](docs/images/ppt-templates-0.18.3.jpg).
 
 Custom PowerPoint templates contribute their layout, background, decoration and theme, not their sample text. Check exported files in your presentation software, especially when using complex templates or fonts that may not be installed.
 

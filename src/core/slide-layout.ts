@@ -3,7 +3,7 @@ import {hasMath,mathLines} from './math-text';
 export type SlideBlock = {label:string;text:string;emphasis?:boolean;math?:boolean};
 export type Rect = {x:number;y:number;w:number;h:number};
 export type SlideLayout = {width:number;height:number;classroom?:boolean;sequence?:'steps';body:Rect;title:Rect};
-export const defaultSlideLayout:SlideLayout = {width:13.333333,height:7.5,classroom:true,body:{x:.94,y:1.67,w:11.45,h:5.05},title:{x:.92,y:.68,w:11.5,h:.73}};
+export const defaultSlideLayout:SlideLayout = {width:13.333333,height:7.5,classroom:true,body:{x:.70,y:1.18,w:11.92,h:5.73},title:{x:.70,y:.34,w:8.0,h:.61}};
 export function bodyFontSize(kind:string, layout=defaultSlideLayout) {
  const reading=['source','question','practice'].includes(kind);
  return layout.classroom ? (reading ? 26 : 23) : (reading ? 22 : 19);
@@ -45,18 +45,18 @@ export function layoutBlocks(blocks:SlideBlock[],layout=defaultSlideLayout,kind=
   y+=h+gap;return rect;
  });
 }
-function pack(input:SlideBlock[],layout:SlideLayout,kind:string,height:number):SlideBlock[][]{
+function pack(input:SlideBlock[],layout:SlideLayout,kind:string,height:number,fontSize=bodyFontSize(kind,layout)):SlideBlock[][]{
  const pages:SlideBlock[][]=[];let page:SlideBlock[]=[],used=0;
- const m=metrics(layout,kind);
+ const m=metrics(layout,kind,fontSize);
  const flush=()=>{if(page.length)pages.push(page);page=[];used=0;};
  for(const item of input){
   if(!item.text.trim())continue;
   let remaining=item.text,continued=false;
-  if(page.length&&blockHeight(item,layout,kind)<=height&&used+gap+blockHeight(item,layout,kind)>height)flush();
+  if(page.length&&blockHeight(item,layout,kind,fontSize)<=height&&used+gap+blockHeight(item,layout,kind,fontSize)>height)flush();
   while(remaining){
    const label=item.label+(continued&&item.label&&!item.label.endsWith('（续）')?'（续）':'');
    const room=height-used-(page.length?gap:0)-labelHeight(label,layout)-.07;
-   const math=item.math&&hasMath(remaining)?mathLines(remaining,layout.body.w,bodyFontSize(kind,layout)):undefined;
+   const math=item.math&&hasMath(remaining)?mathLines(remaining,layout.body.w,fontSize):undefined;
    let count=Math.floor((room+.00001)/m.lineHeight);
    if(math){count=0;let used=0;for(const line of math){if(used+line.h>room+.00001)break;used+=line.h;count++;}if(!count&&!page.length)throw Error('公式高度超出页面，请拆分公式或使用更大的模板');}
    const wrapped=math?math.map(l=>l.raw):wrapSlideText(remaining,m.columns);
@@ -65,12 +65,15 @@ function pack(input:SlideBlock[],layout:SlideLayout,kind:string,height:number):S
    const text=wrapped.slice(0,count).join('');
    if(!text)throw Error('模板正文区域太小，无法放入一行内容');
    const block={...item,label,text};
-   used+=(page.length?gap:0)+blockHeight(block,layout,kind);page.push(block);
+   used+=(page.length?gap:0)+blockHeight(block,layout,kind,fontSize);page.push(block);
    remaining=remaining.slice(text.length);continued=true;
    if(remaining)flush();
   }
  }
  flush();return pages;
+}
+export function splitQuestionBlock(block:SlideBlock,layout:SlideLayout,fontSize:number){
+ return pack([block],layout,'question',layout.body.h,fontSize);
 }
 export function paginateBlocks(input:SlideBlock[],layout=defaultSlideLayout,kind='analysis'):SlideBlock[][]{
  const prepared=input.map(b=>/^(?:参考答案|答案|核心结论|关键步骤|解题关键|句子主干)(?:$|（续）)/.test(b.label)?{...b,emphasis:true}:b);
@@ -83,7 +86,7 @@ function paginatePage(input:SlideBlock[],layout=defaultSlideLayout,kind='analysi
  const m=metrics(layout,kind);
  if(layout.body.h<labelHeight('文',layout)+m.lineHeight+.07||layout.body.w<2)throw Error('模板正文区域太小，请使用正文空间更大的模板');
  const pages=pack(input,layout,kind,layout.body.h);
- if(pages.length<2)return pages;
+ if(pages.length<2 || kind==='question')return pages;
  const cost=(page:SlideBlock[])=>page.reduce((n,b)=>n+blockHeight(b,layout,kind),0)+Math.max(0,page.length-1)*gap;
  if(cost(pages[pages.length-1])>=layout.body.h*.38)return pages;
  // Repack only the last two pages at the smallest capacity that still fits two pages.

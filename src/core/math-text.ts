@@ -46,6 +46,7 @@ export function splitMath(text:string):MathPart[]{
 export const hasMath=(text:string)=>splitMath(text).some(p=>p.math);
 export type MathRun={raw:string;text:string;x:number;w:number;h:number;formula?:Formula};
 export type MathLine={raw:string;runs:MathRun[];h:number};
+export class FormulaWidthError extends RangeError {}
 export function mathLines(text:string,width:number,fontSize:number):MathLine[]{
  const em=fontSize/72,base=em*1.32,lines:MathLine[]=[];let row:MathLine={raw:'',runs:[],h:base},used=0;
  const flush=()=>{if(row.raw){lines.push(row);row={raw:'',runs:[],h:base};used=0;}};
@@ -53,7 +54,7 @@ export function mathLines(text:string,width:number,fontSize:number):MathLine[]{
  for(const part of splitMath(text)){
   if(part.error)throw Error(part.error);
   if(part.math){const f=renderFormula(part.text,part.display),w=f.width*em,h=f.height*em;
-   if(w>width*.91)throw Error('公式超出页面宽度，请拆成多行或选择更宽的模板');
+   if(w>width*.91)throw new FormulaWidthError('公式超出页面宽度，请拆成多行或选择更宽的模板');
    if(part.display)flush();push({raw:part.raw,text:part.text,x:0,w,h,formula:f});if(part.display)flush();
   }else for(const token of part.text.match(/\n|[^\S\n]+|[a-zA-Z0-9’'-]+|./gu)||[]){
    if(token==='\n'){row.raw+='\n';flush();continue;}

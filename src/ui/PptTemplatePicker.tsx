@@ -2,14 +2,17 @@ import React,{useEffect,useState} from 'react';
 import {Upload} from 'lucide-react';
 import {builtinPptTemplates,type PptTemplate} from '../core/ppt-templates';
 import {invoke} from './api';
+import {questionPages} from '../core/question-layout';
 import {SlideDrawing} from './LessonSlideView';
 import './ppt-templates.css';
 
-const sampleQuestion={title:'第 21 题',section:'阅读 A · 美国国家公园',kind:'question',blocks:[
- {label:'',text:'Which park is famous for its biodiversity?'},
- {label:'选项',text:'A. Great Smoky Mountains.\nB. Yosemite.'}
-]};
-const descriptions:Record<string,string>={paper:'连续读题，对照原文和批注',blue:'左侧定位题目，右侧展开讲解',forest:'每翻一页，揭示一条讲评要点'};
+function sampleQuestion(template:PptTemplate){
+ const [page]=questionPages('Which statement is supported by the observations?',[
+  'A. The count increased.','B. Every student cycled.','C. The weather changed.','D. The racks were full.',
+ ],template.layout);
+ return {...page,title:'第 21 题',section:'校园骑行',kind:'question'};
+}
+const descriptions:Record<string,string>={paper:'纸色底与朱色批注',blue:'蓝色题头，全宽阅读',forest:'浅薄荷底与白色书写区'};
 
 type Props={value:PptTemplate;onChange:(value:PptTemplate)=>void;busy:boolean;onPending:(pending:boolean)=>void};
 export function PptTemplatePicker({value,onChange,busy,onPending}:Props){
@@ -34,7 +37,7 @@ export function PptTemplatePicker({value,onChange,busy,onPending}:Props){
   <div className="ppt-builtin-options" role="group" aria-label="内置 PPT 模板">{builtinPptTemplates.map(t=><label className={'ppt-template-option'+(value.id===t.id?' is-selected':'')} key={t.id}>
    <input type="radio" name="ppt-template" value={t.id} checked={value.id===t.id} onChange={()=>onChange(t)}/>
    <span className="ppt-miniature" aria-hidden="true" style={{background:'#'+t.colors.background,borderColor:'#'+t.colors.line}}>
-    <SlideDrawing slide={sampleQuestion} template={t} projectTitle="国家公园" page={2} total={6}/>
+    <SlideDrawing slide={sampleQuestion(t)} template={t} projectTitle="校刊阅读" page={2} total={6}/>
    </span>
    <span className="ppt-template-name">{t.name}<small>{descriptions[t.id]}</small></span>
   </label>)}</div>

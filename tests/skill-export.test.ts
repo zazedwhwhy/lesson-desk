@@ -354,7 +354,7 @@ it('Skill 模板决定实际 PPT 背景，并随课件包导入；拼错样式�
   const root=await mkdtemp(path.join(os.tmpdir(),'lesson-skill-style-'));
   try {
     const raw=vocabularyManifest();
-    for (const [id,color] of [['paper','FAF7EF'],['blue','FFFCF5'],['forest','111621']]) {
+    for (const [id,color] of [['paper','FAF7EF'],['blue','FFFCF5'],['forest','F1F8F4']]) {
       const result=await buildSkillLesson({...raw,pptTemplate:id},root,path.join(root,id));
       const pages=unzipSync(await readFile(result.pptx));
       expect(strFromU8(pages['ppt/slides/slide1.xml'])).toContain(color);

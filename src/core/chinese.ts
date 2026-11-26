@@ -1,3 +1,4 @@
+import {questionPages,type QuestionLayout} from './question-layout';
 import {GenerationContentError} from './errors';
 import {taskTiming} from './task-timing';
 import {paginateBlocks,defaultSlideLayout,type SlideLayout,type SlideBlock} from './slide-layout';
@@ -23,7 +24,7 @@ export function chineseFingerprint(d:ChineseData,g:ChineseGroup,qid?:string){con
 export function chineseChecks(d:ChineseData){const out:string[]=[],mids=d.groups.flatMap(g=>g.materials.map(m=>m.id)),qids=new Set<string>(),nums=new Set<string>(),gids=new Set<string>();if(!d.groups.length)out.push('尚未整理材料组');for(const g of d.groups){if(gids.has(g.id))out.push('材料组编号重复：'+g.title);gids.add(g.id);for(const m of g.materials){if(!m.text.trim()&&!m.image)out.push(g.title+'：材料为空');if(m.image&&!m.imageConfirmed)out.push(g.title+'：图片尚未核对');if(mids.filter(id=>id===m.id).length>1)out.push(g.title+'：材料编号重复');}for(const q of g.questions){if(q.excluded)continue;if(qids.has(q.id))out.push('题目编号重复：'+q.number);qids.add(q.id);if(nums.has(q.number))out.push('题号重复：'+q.number);nums.add(q.number);if(!q.stem.trim())out.push('第'+q.number+'题：题干为空');if(q.materialIds.some(id=>!mids.includes(id)))out.push('第'+q.number+'题：关联材料不存在');if(!q.confirmed)out.push('第'+q.number+'题：题面尚未核对');}}return [...new Set(out)];}
 export function validateChineseResult(d:ChineseData,g:ChineseGroup,raw:unknown){const r=chineseResultSchema.parse(raw);const allowed=new Set([...g.materials.map(m=>m.id),...g.questions.flatMap(q=>q.materialIds)]);for(const b of r.blocks)for(const e of b.evidence){const m=d.groups.flatMap(x=>x.materials).find(m=>m.id===e.materialId);if(!m||!allowed.has(m.id)||!m.text.includes(e.quote))throw new GenerationContentError('讲义引用与关联材料不一致，未保存本次输出');}if(r.status==='ok'&&g.materials.some(m=>m.image&&!m.imageConfirmed))throw Error('图片尚未核对，不能标记讲义完成');return r;}
 export function chineseAvailable(d:ChineseData,g:ChineseGroup,v:ChineseGroup['versions'][number]){return !g.sourceNeedsReview&&v.confirmed&&v.result.status==='ok'&&v.fingerprint===chineseFingerprint(d,g,v.questionId)&&!g.materials.some(m=>m.image&&!m.imageConfirmed)&&(!v.questionId||g.questions.some(q=>q.id===v.questionId&&q.confirmed&&!q.excluded));}
-export type ChineseSlide={id:string;kind:string;title:string;section:string;body:string[];blocks:{label:string;text:string;emphasis?:boolean}[];passageId:string;image?:string;sourceVersionId?:string;questionId?:string};
+export type ChineseSlide={questionLayout?:QuestionLayout;id:string;kind:string;title:string;section:string;body:string[];blocks:{label:string;text:string;emphasis?:boolean}[];passageId:string;image?:string;sourceVersionId?:string;questionId?:string};
 export function chineseSlides(d:ChineseData,selected:string[],layout:SlideLayout=defaultSlideLayout):ChineseSlide[]{
  const slides:ChineseSlide[]=[];const known=new Set(d.groups.flatMap(g=>['source:'+g.id,...g.versions.map(v=>v.id)]));if(selected.some(id=>!known.has(id)))throw Error('所选内容已不存在，请重新编排');
  const add=(g:ChineseGroup,title:string,label:string,text:string,image?:string,content?:SlideBlock[],sourceVersionId?:string,questionId?:string)=>{
@@ -45,7 +46,10 @@ export function chineseSlides(d:ChineseData,selected:string[],layout:SlideLayout
    const groups=v.module!=='practice'?[content]:answerAt>0?[content.slice(0,answerAt),content.slice(answerAt)]:content.map(b=>[b]);
    groups.forEach((group,i)=>add(g,title+(v.module==='practice'&&answerAt>0&&i?' · 演练讲评':''),'','',undefined,group.flatMap(b=>[{label:b.label,text:b.text},...b.evidence.map(e=>({label:'原文依据',text:e.quote}))]),v.id));
   };
-  for(const q of g.questions.filter(q=>!q.excluded)){const vs=g.versions.filter(v=>v.questionId===q.id&&selected.includes(v.id));if(vs.length){add(g,'第 '+q.number+' 题','题面',[q.stem,...q.options].join('\n'),undefined,undefined,undefined,q.id);vs.forEach(emit);}}
+  for(const q of g.questions.filter(q=>!q.excluded)){const vs=g.versions.filter(v=>v.questionId===q.id&&selected.includes(v.id));if(vs.length){questionPages(q.stem,q.options,layout,'chinese').forEach((page,i,all)=>slides.push({
+    ...page,id:'zh-'+slides.length,kind:layout.classroom?'question':'chinese',title:'第 '+q.number+' 题'+(all.length>1?'（'+(i+1)+'/'+all.length+'）':''),
+    section:g.section+' · '+g.title,body:page.blocks.map(b=>b.text),passageId:g.id,questionId:q.id,
+   }));vs.forEach(emit);}}
   g.versions.filter(v=>!v.questionId&&selected.includes(v.id)).forEach(emit);
   if(g.versions.some(v=>v.questionId&&selected.includes(v.id)&&!g.questions.some(q=>q.id===v.questionId&&!q.excluded)))throw Error('所选题目已排除或不存在');
  }if(!slides.length)throw Error('请至少选择一项有效内容');return slides;

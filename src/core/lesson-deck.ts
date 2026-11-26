@@ -1,3 +1,4 @@
+import {questionPages,type QuestionLayout} from './question-layout';
 import {optionEntries} from './options';
 import {paginateBlocks,defaultSlideLayout,type SlideLayout} from './slide-layout';
 import { active, type Project, type Question } from './model';
@@ -16,7 +17,7 @@ export type LessonSelection = {
   questionIdsByModule?: Partial<Record<'analysis' | 'practice' | 'special', string[]>>;
 };
 export type LessonBlock = { label: string; text: string; emphasis?: boolean };
-export type LessonSlide = { id: string; kind: LessonModule | 'question' | 'practice-answer' | 'imitation-answer'; title: string; section: string; blocks: LessonBlock[]; body: string[]; questionId?: string; passageId: string };
+export type LessonSlide = { questionLayout?:QuestionLayout; id: string; kind: LessonModule | 'question' | 'practice-answer' | 'imitation-answer'; title: string; section: string; blocks: LessonBlock[]; body: string[]; questionId?: string; passageId: string };
 
 function versionFor(p: Project, passageId: string) {
   const passage = p.passages.find(a => a.id === passageId);
@@ -166,6 +167,12 @@ export function buildLessonDeck(p: Project, selection: LessonSelection, layout:S
   const add = (kind: LessonSlide['kind'], title: string, section: string, content: LessonBlock[], pid: string, qid?: string) => {
     paginateBlocks(content,layout,kind).forEach((page, i, all) => slides.push({ id: `slide-${slides.length}`, kind, title: title + (all.length > 1 ? `（${i + 1}/${all.length}）` : ''), section, blocks: page, body: page.map(b => b.text), questionId: qid, passageId: pid }));
   };
+  const addQuestion=(kind:'question'|'practice',title:string,section:string,stem:string,choices:string[],pid:string,qid?:string)=>{
+    const options=optionEntries(choices).map(o=>o.label+'. '+o.text);
+    const pages=questionPages(stem,options,layout);
+    pages.forEach((page,i)=>slides.push({...page,id:'slide-'+slides.length,kind,
+      title:title+(pages.length>1?'（'+(i+1)+'/'+pages.length+'）':''),section,body:page.blocks.map(b=>b.text),passageId:pid,questionId:qid}));
+  };
   for (const a of p.passages.filter(a => selection.passageIds.includes(a.id))) {
     const qs = p.questions.filter(q => q.passageId === a.id && !q.excluded && selection.questionIds.includes(q.id));
     const chosen = selection.modules[a.id] || [];
@@ -174,14 +181,18 @@ export function buildLessonDeck(p: Project, selection: LessonSelection, layout:S
     if (chosen.includes('source')) add('source', a.title, '英文原文', blocks(block('', a.paragraphs.map(b => b.text).join('\n\n')), block('共用选项池', a.pool)), a.id);
     if (chosen.includes('translation')) add('translation', a.title, '中文译文', blocks(block('', a.translation)), a.id);
     for (const q of qs) {
-      if (explained.includes(q) || practiced.includes(q)) add('question', `第 ${q.number} 题`, a.title, blocks(block('', q.stem), block('选项', optionEntries(q.options).map(o=>o.label+'. '+o.text).join('\n'))), a.id, q.id);
+      if (explained.includes(q) || practiced.includes(q)) {
+        addQuestion('question','第 '+q.number+' 题',a.title,q.stem,q.options,a.id,q.id);
+      }
       if (explained.includes(q)) {
         const e = active(q)!;
         add('analysis', `第 ${q.number} 题 · 逐题讲评`, a.title, blocks(block(q.answer.trim()?'参考答案':'AI 建议答案（待核实）', q.answer.trim()||e.answer, true), block('AI 解析', e.analysis), ...e.evidence.map((x, i) => block(`原文依据 ${i + 1}`, x.quote))), a.id, q.id);
       }
       if (practiced.includes(q)) {
         const exercise = questionExercise(p, q)!;
-        add('practice', `第 ${q.number} 题 · 考点演练`, a.title, blocks(block('AI 新编练习', exerciseText(exercise))), a.id, q.id);
+        if(layout.classroom)addQuestion('practice','第 '+q.number+' 题 · 考点演练',a.title+' · AI 新编练习',
+          exercise.material+'\n\n'+exercise.stem,exercise.options,a.id,q.id);
+        else add('practice', `第 ${q.number} 题 · 考点演练`, a.title, blocks(block('AI 新编练习', exerciseText(exercise))), a.id, q.id);
         add('practice-answer', `第 ${q.number} 题 · 演练讲评`, a.title, blocks(block('参考答案与解析', exerciseAnswerText(exercise))), a.id, q.id);
       }
     }
@@ -190,7 +201,9 @@ export function buildLessonDeck(p: Project, selection: LessonSelection, layout:S
       const existing = questionExercise(p, q);
       return existing && t.exercise && existing.material === t.exercise.material && existing.stem === t.exercise.stem;
     })).forEach((t, i) => {
-      add('practice', `考点演练 · 补充练习 ${i + 1}`, a.title, blocks(block('AI 新编练习', t.exercise ? exerciseText(t.exercise) : [t.stem, ...t.options].join('\n'))), a.id);
+      if(layout.classroom && t.exercise)addQuestion('practice','考点演练 · 补充练习 '+(i+1),a.title+' · AI 新编练习',
+        t.exercise.material+'\n\n'+t.exercise.stem,t.exercise.options,a.id);
+      else add('practice', `考点演练 · 补充练习 ${i + 1}`, a.title, blocks(block('AI 新编练习', t.exercise ? exerciseText(t.exercise) : [t.stem, ...t.options].join('\n'))), a.id);
       add('practice-answer', `考点演练 · 补充讲评 ${i + 1}`, a.title, blocks(block('参考答案与解析', t.exercise ? exerciseAnswerText(t.exercise) : [t.answer, t.analysis, t.point].join('\n'))), a.id);
     });
     if (d && chosen.includes('sentences')) d.sentences.forEach((s, i) => add('sentences', `句法拆解 · 句子 ${i + 1}`, a.title, blocks(block('原句', s.quote), block('句意', s.translation), block('句子主干', s.trunk), ...s.parts?.map(x => block(x.role, `${x.text}\n${x.explanation}`)) || [], block('结构讲解', s.clauses), block('应试提醒', s.examTip)), a.id));

@@ -50,7 +50,10 @@ it('Word重复图片只识别一次并携带每次出现的邻近题面，不把
 it('自动图随题核对即可生成和输出，旧手工图仍需核对',()=>{
  const q=chemQuestionSchema.parse({id:'q',number:'12',stem:'原题',imageMode:'auto',images:questionFigures(source(),'12')});
  expect(chemChecks(q)).toEqual(['题面尚未核对']);q.confirmed=true;expect(chemChecks(q)).toEqual([]);
- const p=emptyProject('图','chemistry');p.chemistry!.questions=[q];expect(chemSlides(p.chemistry!,['question:q']).filter(s=>s.image)).toHaveLength(1);
+ const p=emptyProject('图','chemistry');p.chemistry!.questions=[q];
+ const slides=chemSlides(p.chemistry!,['question:q']);
+ expect(slides).toHaveLength(1);
+ expect(slides[0].questionLayout?.figure?.data).toBe(q.images[0].data);
  q.images[0].automatic=false;expect(chemChecks(q)).toContain('图片尚未核对');
 });
 it('整理的明确图ID覆盖初步题号，移除软件占位文字且不在补齐时错挂',async()=>{

@@ -1,3 +1,4 @@
+import {questionPages,type QuestionLayout} from './question-layout';
 import {taskTiming} from './task-timing';
 import {z} from 'zod';
 import {paginateBlocks,defaultSlideLayout,type SlideLayout,type SlideBlock} from './slide-layout';
@@ -51,7 +52,7 @@ export function reviseChemistry(old:Chemistry|undefined,next:Chemistry){
  for(const q of next.questions){const prev=old?.questions.find(a=>a.id===q.id);if(prev&&chemFingerprint(prev)!==chemFingerprint(q)){q.confirmed=false;for(const image of q.images){const prior=prev.images.find(i=>i.id===image.id);if(!prior||JSON.stringify([prior.data,prior.description,prior.sourceId,prior.page])!==JSON.stringify([image.data,image.description,image.sourceId,image.page]))image.confirmed=false;}}}
  return next;
 }
-export type ChemSlide={id:string;kind:string;title:string;section:string;blocks:SlideBlock[];questionId:string;image?:string;sourceVersionId?:string};
+export type ChemSlide={questionLayout?:QuestionLayout;id:string;kind:string;title:string;section:string;blocks:SlideBlock[];questionId:string;image?:string;sourceVersionId?:string};
 export function chemSlides(d:Chemistry,selected:string[],layout:SlideLayout=defaultSlideLayout):ChemSlide[]{
  const known=new Set(d.questions.flatMap(q=>['question:'+q.id,...q.versions.map(v=>v.id)]));
  if(selected.some(id=>!known.has(id)))throw Error('所选内容已不存在，请重新编排');
@@ -62,8 +63,11 @@ export function chemSlides(d:Chemistry,selected:string[],layout:SlideLayout=defa
   const checks=chemChecks(q);if(checks.length)throw Error('第 '+q.number+' 题：'+checks.join('；'));
   const add=(title:string,blocks:SlideBlock[],kind='analysis',version?:string)=>paginateBlocks(blocks.map(b=>({...b,math:true})),layout,kind).forEach((blocks,i)=>slides.push({id:'chem-'+slides.length,kind,title:title+(i?'（续）':''),section:'化学 · '+chemKindNames[q.kind],questionId:q.id,sourceVersionId:version,blocks}));
   // A selected explanation always carries the original question and figures.
-  add('第 '+q.number+' 题',[{label:'题面',text:[q.stem,...q.options].join('\n')}],'question');
-  for(const image of q.images)slides.push({id:'chem-'+slides.length,kind:'source',title:'第 '+q.number+' 题 · '+image.name,section:image.page?'原材料第 '+image.page+' 页':'题目配图',questionId:q.id,blocks:[],image:image.data});
+  const pages=questionPages(q.stem,q.options,layout,'chemistry',q.images.length===1?q.images[0]:undefined);
+  pages.forEach((page,i)=>slides.push({...page,id:'chem-'+slides.length,kind:'question',title:'第 '+q.number+' 题'+(i?'（续）':''),
+    section:'化学 · '+chemKindNames[q.kind],questionId:q.id}));
+  const separateImages=pages.some(page=>page.questionLayout?.figure)?[]:q.images;
+  for(const image of separateImages)slides.push({id:'chem-'+slides.length,kind:'source',title:'第 '+q.number+' 题 · '+image.name,section:image.page?'原材料第 '+image.page+' 页':'题目配图',questionId:q.id,blocks:[],image:image.data});
   for(const v of versions){
    if(!chemReady(q,v))throw Error('所选讲义未确认、待核实或已过期：第 '+q.number+' 题 · '+chemNames[v.module]);
    // Practice blocks are separate slides so solutions cannot appear with tasks.
